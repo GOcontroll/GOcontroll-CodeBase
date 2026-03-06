@@ -1,0 +1,450 @@
+/**************************************************************************************
+ * \file   GO_module_input.c
+ * \brief  Utility functions to interface the GOcontroll input module.
+ * \internal
+ *----------------------------------------------------------------------------------------
+ *                          C O P Y R I G H T
+ *----------------------------------------------------------------------------------------
+ * Copyright 2024 (c) by GOcontroll http://www.gocontroll.com All rights
+ * reserved
+ *
+ *----------------------------------------------------------------------------------------
+ *                            L I C E N S E
+ *----------------------------------------------------------------------------------------
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * \endinternal
+ ****************************************************************************************/
+
+/****************************************************************************************
+ * Include files
+ ****************************************************************************************/
+#include "GO_module_input.h"
+
+#include <errno.h>
+#include <string.h>
+
+#include "GO_communication_modules.h"
+#include "print.h"
+
+/****************************************************************************************
+ * Macro definitions
+ ****************************************************************************************/
+
+/****************************************************************************************
+ * Local data declarations
+ ****************************************************************************************/
+static uint8_t
+	inputModuleDataTx[INPUTMODULE6CHMESSAGELENGTH + MESSAGEOVERLENGTH];
+static uint8_t
+	inputModuleDataRx[INPUTMODULE6CHMESSAGELENGTH + MESSAGEOVERLENGTH];
+
+uint8_t resistorMatrix[4] = {0, 3, 1, 2};
+
+const uint8_t INPUTMODULE6CHANNELID[] = {20, 10, 1};
+const uint8_t INPUTMODULE10CHANNELID[] = {20, 10, 2};
+
+const uint32_t VERSIONSECONDSUPPLY_10CHANNELIN = 4U;
+const uint32_t VERSIONSPIPROTOCOLV2_6CHANNELIN = 2 << 16;
+
+extern _hardwareConfig hardwareConfig;
+
+/****************************************************************************************/
+
+int GOmoduleinput_configuration(_inputModule* inputModule) {
+	// module not registered
+	if (hardwareConfig.moduleOccupancy[inputModule->moduleSlot][0] == 0) {
+		return -ENODEV;
+	}
+
+	uint8_t dataPointer = 6;
+	inputModule->sw_version =
+		hardwareConfig.moduleOccupancy[inputModule->moduleSlot][4] << 16 |
+		hardwareConfig.moduleOccupancy[inputModule->moduleSlot][5] << 8 |
+		hardwareConfig.moduleOccupancy[inputModule->moduleSlot][6];
+
+	if (inputModule->moduleType == INPUTMODULE6CHANNEL) {
+		for (uint8_t pointer = 0; pointer < 6; pointer++) {
+			inputModuleDataTx[dataPointer++] =
+				inputModule->configuration[pointer];
+			inputModuleDataTx[dataPointer++] = inputModule->interface[pointer];
+			inputModuleDataTx[dataPointer++] =
+				inputModule->callibrationValue1[pointer];
+			inputModuleDataTx[dataPointer++] =
+				inputModule->callibrationValue2[pointer];
+			inputModuleDataTx[dataPointer++] =
+				inputModule->callibrationValue3[pointer];
+			inputModuleDataTx[dataPointer++] =
+				inputModule->callibrationValue4[pointer];
+		}
+
+		inputModuleDataTx[42] = inputModule->sensorSupply1;
+		inputModuleDataTx[43] = inputModule->sensorSupply2;
+		inputModuleDataTx[44] = inputModule->sensorSupply3;
+
+		if (inputModule->sw_version >= VERSIONSPIPROTOCOLV2_6CHANNELIN) {
+			return GO_communication_modules_send_spi(
+				inputModule->moduleSlot + 1, INPUTMODULE6CHMESSAGELENGTH, 1, 11,
+				2, 1, inputModule->moduleSlot, &inputModuleDataTx[0], 0);
+		} else {
+			return GO_communication_modules_send_spi(
+				1, INPUTMODULE6CHMESSAGELENGTH, 1, 0, 0, 0,
+				inputModule->moduleSlot, &inputModuleDataTx[0], 0);
+		}
+	} else if (inputModule->moduleType == INPUTMODULE10CHANNEL) {
+		for (uint8_t pointer = 0; pointer < 10; pointer++) {
+			inputModuleDataTx[dataPointer++] =
+				inputModule->configuration[pointer];
+			inputModuleDataTx[dataPointer++] = inputModule->interface[pointer];
+			inputModuleDataTx[dataPointer++] =
+				inputModule->callibrationValue1[pointer];
+			inputModuleDataTx[dataPointer++] =
+				inputModule->callibrationValue2[pointer];
+		}
+
+		inputModuleDataTx[46] = inputModule->sensorSupply1;
+
+		if (inputModule->sw_version >= VERSIONSECONDSUPPLY_10CHANNELIN) {
+			inputModuleDataTx[47] = inputModule->sensorSupply2;
+			return GO_communication_modules_send_spi(
+				inputModule->moduleSlot + 1, INPUTMODULE10CHMESSAGELENGTH, 1,
+				12, 2, 1, inputModule->moduleSlot, &inputModuleDataTx[0], 0);
+		} else {
+			return GO_communication_modules_send_spi(
+				1, INPUTMODULE10CHMESSAGELENGTH, 1, 12, 2, 1,
+				inputModule->moduleSlot, &inputModuleDataTx[0], 0);
+		}
+	} else {
+		return -EINVAL;
+	}
+}
+
+/****************************************************************************************/
+
+int GOmoduleinput_receiveValues(_inputModule* inputModule) {
+	// module not registered
+	if (hardwareConfig.moduleOccupancy[inputModule->moduleSlot][0] == 0) {
+		return -ENODEV;
+	}
+
+	int res = 0;
+	if (inputModule->moduleType == INPUTMODULE6CHANNEL) {
+		if (inputModule->sw_version >= VERSIONSPIPROTOCOLV2_6CHANNELIN) {
+			res = GO_communication_modules_send_receive_spi(
+				inputModule->moduleSlot + 1, INPUTMODULE6CHMESSAGELENGTH, 2, 11,
+				3, 1, inputModule->moduleSlot, &inputModuleDataTx[0],
+				&inputModuleDataRx[0]);
+		} else {
+			res = GO_communication_modules_send_receive_spi(
+				1, INPUTMODULE6CHMESSAGELENGTH, 2, 0, 0, 0,
+				inputModule->moduleSlot, &inputModuleDataTx[0],
+				&inputModuleDataRx[0]);
+		}
+		if (res) return res;
+
+		for (uint8_t pointer = 0; pointer < 6; pointer++) {
+			inputModule->value[pointer] =
+				*(int32_t*)&inputModuleDataRx[(pointer * 8) + 6];
+			inputModule->syncCounter[pointer] =
+				*(int32_t*)&inputModuleDataRx[(pointer * 8) + 10];
+		}
+
+	} else if (inputModule->moduleType == INPUTMODULE10CHANNEL) {
+		int res;
+		if (inputModule->sw_version >= VERSIONSECONDSUPPLY_10CHANNELIN) {
+			res = GO_communication_modules_send_receive_spi(
+				inputModule->moduleSlot + 1, INPUTMODULE10CHMESSAGELENGTH, 2,
+				12, 3, 1, inputModule->moduleSlot, &inputModuleDataTx[0],
+				&inputModuleDataRx[0]);
+		} else {
+			res = GO_communication_modules_send_receive_spi(
+				1, INPUTMODULE10CHMESSAGELENGTH, 2, 12, 3, 1,
+				inputModule->moduleSlot, &inputModuleDataTx[0],
+				&inputModuleDataRx[0]);
+		}
+		if (res) return res;
+
+		for (uint8_t pointer = 0; pointer < 10; pointer++) {
+			inputModule->value[pointer] =
+				*(int32_t*)&inputModuleDataRx[(pointer * 4) + 6];
+		}
+	} else {
+		return -EINVAL;
+	}
+	return 0;
+}
+
+/****************************************************************************************/
+
+int GOmoduleinput_resetPulsCounter(_inputModule* inputModule, uint8_t channel,
+								 int32_t value, uint8_t trigger) {
+	int res;
+	// module not registered
+	if (hardwareConfig.moduleOccupancy[inputModule->moduleSlot][0] == 0) {
+		return -ENODEV;
+	}
+	if (inputModule->moduleType == INPUTMODULE6CHANNEL && channel > 5) {
+		return -EINVAL;
+	} else if (inputModule->moduleType == INPUTMODULE10CHANNEL && channel > 9) {
+		return -EINVAL;
+	}
+
+	if (inputModule->pulscounterResetTrigger[channel] != trigger) {
+		inputModuleDataTx[6] = channel;
+		*(int32_t*)&inputModuleDataTx[7] = value;
+
+		if (inputModule->moduleType == INPUTMODULE6CHANNEL) {
+			if (inputModule->sw_version >= VERSIONSPIPROTOCOLV2_6CHANNELIN) {
+				res = GO_communication_modules_send_spi(
+					inputModule->moduleSlot + 1, INPUTMODULE6CHMESSAGELENGTH, 1,
+					11, 3, 2, inputModule->moduleSlot, &inputModuleDataTx[0],
+					0);
+			} else {
+				res = GO_communication_modules_send_spi(
+					1, INPUTMODULE6CHMESSAGELENGTH, 3, 0, 0, 0,
+					inputModule->moduleSlot, &inputModuleDataTx[0], 0);
+			}
+		} else if (inputModule->moduleType == INPUTMODULE10CHANNEL) {
+			if (inputModule->sw_version >= VERSIONSECONDSUPPLY_10CHANNELIN) {
+				res = GO_communication_modules_send_spi(
+					inputModule->moduleSlot + 1, INPUTMODULE10CHMESSAGELENGTH,
+					1, 12, 3, 2, inputModule->moduleSlot, &inputModuleDataTx[0],
+					0);
+			} else {
+				res = GO_communication_modules_send_spi(
+					1, INPUTMODULE10CHMESSAGELENGTH, 1, 12, 3, 2,
+					inputModule->moduleSlot, &inputModuleDataTx[0], 0);
+			}
+		}
+
+		inputModule->pulscounterResetTrigger[channel] = trigger;
+	}
+	return res;
+}
+
+/****************************************************************************************/
+
+int GOmoduleinput_setModuleSlot(_inputModule* inputModule, uint8_t moduleSlot) {
+	if (moduleSlot < hardwareConfig.moduleNumber) {
+		if (inputModule->moduleType == INPUTMODULE6CHANNEL) {
+			if (!memcmp(hardwareConfig.moduleOccupancy[moduleSlot],
+						INPUTMODULE6CHANNELID, 3)) {
+				inputModule->moduleSlot = moduleSlot;
+				return 0;
+			}
+		} else {
+			if (!memcmp(hardwareConfig.moduleOccupancy, INPUTMODULE10CHANNELID,
+						3)) {
+				inputModule->moduleSlot = moduleSlot;
+				return 0;
+			}
+		}
+		err("module slot %d is contested by multiple module claims, check "
+			"*SetModuleSlot init functions for double slot claims.\n",
+			moduleSlot + 1);
+		return -EINVAL;
+	}
+	err("Invalid module slot selected for an input module, selected %d, but "
+		"the range is 1-%d.\n",
+		moduleSlot + 1, hardwareConfig.moduleNumber);
+	return -EINVAL;
+}
+
+/****************************************************************************************/
+
+int GOmoduleinput_setModuleType(_inputModule* inputModule, uint8_t moduleType) {
+	if (moduleType == INPUTMODULE6CHANNEL ||
+		moduleType == INPUTMODULE10CHANNEL) {
+		inputModule->moduleType = moduleType;
+		return 0;
+	}
+	err("Invalid module type selected for input module in slot %d, please use "
+		"the macros to set a module type.\n",
+		inputModule->moduleSlot + 1);
+	return -EINVAL;
+}
+
+/****************************************************************************************/
+
+int GOmoduleinput_6chConfigureChannel(_inputModule* inputModule, uint8_t channel,
+									uint8_t func, uint8_t voltage_range,
+									uint8_t pull_up, uint8_t pull_down,
+									uint8_t pulses_per_rotation,
+									uint16_t analog_filter_samples) {
+	if (inputModule->moduleType != INPUTMODULE6CHANNEL) {
+		err("Incorrect module type selected for channel %d, input module in "
+			"slot %d, this function is only meant for 6 channel modules.\n",
+			channel + 1, inputModule->moduleSlot + 1);
+		return -EINVAL;
+	}
+	if ((func > 8) || (func == 0)) {
+		err("invalid function set for channel %d, input module in slot %d, "
+			"range "
+			"is 1-8, entered is %d, please use the macros to configure "
+			"channels.\n",
+			channel + 1, inputModule->moduleSlot + 1, func);
+		return -EINVAL;
+	}
+
+	if (channel > 5) {
+		err("Configured channel is out of range for input module in slot %d, "
+			"range "
+			"is 1-6, entered is %d, please use the macros to configure "
+			"channels.\n",
+			inputModule->moduleSlot + 1, channel + 1);
+		return -EINVAL;
+	}
+	if (voltage_range > 2) {
+		err("Configured voltage range is out of range for channel %d, input "
+			"module in slot %d, range is 0-2, entered is %d, please use the "
+			"macros to configure channels.\n",
+			channel + 1, inputModule->moduleSlot + 1, voltage_range);
+		return -EINVAL;
+	}
+	if (analog_filter_samples > ANALOGSAMPLESMAX) {
+		err("Configured analog filter samples is out of range for channel %d, "
+			"input module in slot %d, range is 0-%d, entered is %d.\n",
+			channel + 1, inputModule->moduleSlot + 1, ANALOGSAMPLESMAX,
+			analog_filter_samples);
+		return -EINVAL;
+	}
+	if (pulses_per_rotation > PULSESPERROTATIONMAX) {
+		err("Configured pulses per rotation is out of range for channel %d, "
+			"input module in slot %d, range is 0-%d, entered is %d.\n",
+			channel + 1, inputModule->moduleSlot + 1, PULSESPERROTATIONMAX,
+			pulses_per_rotation);
+		return -EINVAL;
+	}
+	if (pull_up > 3) {
+		err("Invalid pull up configuration for channel %d, input module in "
+			"slot "
+			"%d, range is 0-3, entered is %d, please use the macros to "
+			"configure channels.\n",
+			channel + 1, inputModule->moduleSlot + 1, pull_up);
+		return -EINVAL;
+	}
+	if (pull_down > 3) {
+		err("Invalid pull down configuration for channel %d, input module in "
+			"slot %d, range is 0-3, entered is %d, please use the macros to "
+			"configure channels.\n",
+			channel + 1, inputModule->moduleSlot + 1, pull_down);
+		return -EINVAL;
+	}
+	// start configuring
+	inputModule->configuration[channel] = func;
+	inputModule->interface[channel] = (resistorMatrix[pull_up]) |
+									  (resistorMatrix[pull_down] << 2) |
+									  (voltage_range << 6);
+	if (func > 2) {
+		inputModule->callibrationValue1[channel] = pulses_per_rotation;
+	} else {
+		inputModule->callibrationValue1[channel] = analog_filter_samples >> 8;
+		inputModule->callibrationValue2[channel] = analog_filter_samples;
+	}
+	return 0;
+}
+
+/****************************************************************************************/
+
+int GOmoduleinput_10chConfigureChannel(_inputModule* inputModule, uint8_t channel,
+									 uint8_t func, uint8_t pull_up,
+									 uint8_t pull_down) {
+	if (inputModule->moduleType != INPUTMODULE10CHANNEL) {
+		err("Incorrect module type selected for channel %d, input module in "
+			"slot %d, this function is only meant for 6 channel modules\n",
+			channel + 1, inputModule->moduleSlot + 1);
+		return -EINVAL;
+	}
+	if ((func > 8) || (func == 0)) {
+		err("Invalid function set for channel %d, input module in slot %d, "
+			"range "
+			"is 1-8, entered is %d, please use the macros to configure "
+			"channels.\n",
+			channel + 1, inputModule->moduleSlot + 1, func);
+		return -EINVAL;
+	}
+	if (channel > 9) {
+		err("Configured channel is out of range for input module in slot %d, "
+			"range is 1-10, entered is %d, please use the macros to configure "
+			"channels.\n",
+			inputModule->moduleSlot + 1, channel + 1);
+		return -EINVAL;
+	}
+	if (pull_up > 1) {
+		err("Invalid pull up configuration for channel %d, input module in "
+			"slot "
+			"%d, range is 0-1, entered is %d, please use the macros to "
+			"configure channels.\n",
+			channel + 1, inputModule->moduleSlot + 1, pull_up);
+		return -EINVAL;
+	}
+	if (pull_down > 1) {
+		err("Invalid pull down configuration for channel %d, input module in "
+			"slot %d, range is 0-1, entered is %d, please use the macros to "
+			"configure channels.\n",
+			channel + 1, inputModule->moduleSlot + 1, pull_down);
+		return -EINVAL;
+	}
+	inputModule->configuration[channel] = func;
+	inputModule->interface[channel] =
+		(resistorMatrix[pull_up]) | (resistorMatrix[pull_down] << 2);
+	return 0;
+}
+
+/****************************************************************************************/
+
+int GOmoduleinput_6chConfigureSupply(_inputModule* inputModule, uint8_t supply1,
+								   uint8_t supply2, uint8_t supply3) {
+	if (inputModule->moduleType != INPUTMODULE6CHANNEL) {
+		err("Incorrect module type selected for supply configuration in slot "
+			"%d, this function is only meant for 6 channel modules.\n",
+			inputModule->moduleSlot + 1);
+		return -EINVAL;
+	}
+	if ((supply1 == 1 || supply1 == 2) && (supply2 == 1 || supply2 == 2) &&
+		(supply3 == 1 || supply3 == 2)) {
+		inputModule->sensorSupply1 = supply1;
+		inputModule->sensorSupply2 = supply2;
+		inputModule->sensorSupply3 = supply3;
+		return 0;
+	}
+	err("Incorrect sensor supply option set for inputmodule in slot %d, "
+		"please use the macros INPUTSENSSUPPLYON and INPUTSENSSUPPLYOFF.\n",
+		inputModule->moduleSlot + 1);
+	return -EINVAL;
+}
+
+/****************************************************************************************/
+
+int GOmoduleinput_10chConfigureSupply(_inputModule* inputModule,
+									uint8_t supply1) {
+	if (inputModule->moduleType != INPUTMODULE10CHANNEL) {
+		err("Incorrect module type selected for supply configuration in slot "
+			"%d, this function is only meant for 10 channel modules.\n",
+			inputModule->moduleSlot + 1);
+		return -EINVAL;
+	}
+	if (supply1 == 1 || supply1 == 2) {
+		inputModule->sensorSupply1 = supply1;
+		return 0;
+	}
+	err("Incorrect sensor supply option set for inputmodule in slot %d, "
+		"please use the macros INPUTSENSSUPPLYON and INPUTSENSSUPPLYOFF.\n",
+		inputModule->moduleSlot + 1);
+	return -EINVAL;
+}
