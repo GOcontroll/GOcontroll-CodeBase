@@ -193,7 +193,7 @@ int GOmoduleinput_receiveValues(_inputModule* inputModule) {
 
 int GOmoduleinput_resetPulsCounter(_inputModule* inputModule, uint8_t channel,
 								 int32_t value, uint8_t trigger) {
-	int res;
+	int res = 0;
 	// module not registered
 	if (hardwareConfig.moduleOccupancy[inputModule->moduleSlot][0] == 0) {
 		return -ENODEV;
