@@ -140,7 +140,7 @@ int GO_module_output_configuration(_outputModule* outputModule) {
 /****************************************************************************************/
 
 int GO_module_output_send_values(_outputModule* outputModule) {
-	int res;
+	int res =0;
 	// module not registered
 	if (hardwareConfig.moduleOccupancy[outputModule->moduleSlot][0] == 0) {
 		return -ENODEV;
