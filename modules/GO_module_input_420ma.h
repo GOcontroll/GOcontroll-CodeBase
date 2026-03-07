@@ -68,7 +68,7 @@ typedef struct {
 **                              the relevant module configuration.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmoduleinput420ma_configuration(_inputModule420ma* inputModule420ma);
+int GO_module_input_420ma_configuration(_inputModule420ma* inputModule420ma);
 
 /**************************************************************************************
 ** \brief     Retrieves measurement values from the 4-20 mA input module via SPI.
@@ -76,6 +76,6 @@ int GOmoduleinput420ma_configuration(_inputModule420ma* inputModule420ma);
 **                              the relevant module configuration.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmoduleinput420ma_receiveValues(_inputModule420ma* inputModule420ma);
+int GO_module_input_420ma_receive_values(_inputModule420ma* inputModule420ma);
 
 #endif /* GO_MODULE_INPUT_420MA_H */

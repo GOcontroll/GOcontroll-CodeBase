@@ -37,8 +37,8 @@
 /****************************************************************************************
  * IoT implementation — GPS data is received from the ESP32 via the UART frame protocol.
  * The ESP sends ESPIF_MSG_GPS_DATA (0x40) frames; the ESP driver calls
- * GOcommunicationesp_onGpsData() from UART ISR context to store the data.
- * GOgps_read() runs in task context and uses a brief interrupt disable to copy
+ * GO_communication_esp_on_gps_data() from UART ISR context to store the data.
+ * GO_gps_read() runs in task context and uses a brief interrupt disable to copy
  * the struct atomically — no RTOS mutex may be used in ISR context.
  ****************************************************************************************/
 #ifdef GOCONTROLL_IOT
@@ -53,8 +53,8 @@ static volatile struct gps_data s_gps_data = {0};
 **            sending ESPIF_MSG_GPS_DATA (0x40) frames.
 ** \return    none
 ***************************************************************************************/
-void GOgps_initialize(void) {
-	GOcommunicationesp_enableGps(true);
+void GO_gps_initialize(void) {
+	GO_communication_esp_enable_gps(true);
 }
 
 /**************************************************************************************
@@ -64,7 +64,7 @@ void GOgps_initialize(void) {
 ** \param     out  pointer to a gps_data structure to populate
 ** \return    none
 ***************************************************************************************/
-void GOgps_read(struct gps_data *out) {
+void GO_gps_read(struct gps_data *out) {
 	__disable_irq();
 	*out = s_gps_data;
 	__enable_irq();
@@ -74,8 +74,8 @@ void GOgps_read(struct gps_data *out) {
 ** \brief     Terminate the GPS subsystem: disable GPS on the ESP.
 ** \return    none
 ***************************************************************************************/
-void GOgps_terminate(void) {
-	GOcommunicationesp_enableGps(false);
+void GO_gps_terminate(void) {
+	GO_communication_esp_enable_gps(false);
 }
 
 /**************************************************************************************
@@ -85,7 +85,7 @@ void GOgps_terminate(void) {
 ** \param     gps  Pointer to the decoded GPS frame (valid for this call only).
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_onGpsData(const EspInterface_GpsData_t *gps) {
+void GO_communication_esp_on_gps_data(const EspInterface_GpsData_t *gps) {
 	uint32_t t = gps->utc_time;  /* HHMMSS, e.g. 143022 = 14:30:22 */
 	uint32_t d = gps->utc_date;  /* DDMMYY, e.g. 230226 = 23-02-2026 */
 
@@ -315,7 +315,7 @@ static void *readGpsThread(void *args) {
 ** \brief     Initialize the GPS subsystem (open UART, create mutex/thread).
 ** \return    none
 ***************************************************************************************/
-void GOgps_initialize(void) {
+void GO_gps_initialize(void) {
 	pthread_mutex_init(&s_gps_mutex, NULL);
 	s_gps_args.gps_data      = &s_gps_data;
 	s_gps_args.gps_data_lock = &s_gps_mutex;
@@ -328,7 +328,7 @@ void GOgps_initialize(void) {
 ** \param     out  pointer to a gps_data structure to populate
 ** \return    none
 ***************************************************************************************/
-void GOgps_read(struct gps_data *out) {
+void GO_gps_read(struct gps_data *out) {
 	pthread_mutex_lock(&s_gps_mutex);
 	*out = s_gps_data;
 	pthread_mutex_unlock(&s_gps_mutex);
@@ -338,7 +338,7 @@ void GOgps_read(struct gps_data *out) {
 ** \brief     Terminate the GPS subsystem and release all resources.
 ** \return    none
 ***************************************************************************************/
-void GOgps_terminate(void) {
+void GO_gps_terminate(void) {
 	s_gps_args.thread_run = 0;
 	pthread_join(s_gps_thread, NULL);
 	pthread_mutex_destroy(&s_gps_mutex);

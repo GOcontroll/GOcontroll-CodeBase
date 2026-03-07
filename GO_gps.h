@@ -53,18 +53,18 @@ struct gps_data {
 ** \brief     Initialize the GPS subsystem (open UART, create mutex/thread).
 ** \return    none
 ***************************************************************************************/
-void GOgps_initialize(void);
+void GO_gps_initialize(void);
 
 /**************************************************************************************
 ** \brief     Read the latest GPS fix into the caller-supplied structure.
 ** \param     out  pointer to a gps_data structure to populate
 ** \return    none
 ***************************************************************************************/
-void GOgps_read(struct gps_data *out);
+void GO_gps_read(struct gps_data *out);
 
 /**************************************************************************************
 ** \brief     Terminate the GPS subsystem and release all resources.
 ** \return    none
 ***************************************************************************************/
-void GOgps_terminate(void);
+void GO_gps_terminate(void);
 

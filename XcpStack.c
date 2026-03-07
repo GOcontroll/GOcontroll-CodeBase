@@ -391,7 +391,7 @@ static void XcpPositiveResponse(uint8_t* dataToSend) {
 	dataToSend[0] = 1;	   // length of packet to be send back to the master
 	dataToSend[1] = 0xff;  // packet response ok
 	XcpCalculateChecksum(dataToSend);
-	GOxcp_sendData(dataToSend);
+	GO_xcp_send_data(dataToSend);
 }
 
 /***************************************************************************************
@@ -410,7 +410,7 @@ static void XcpNegativeResponse(uint8_t* dataToSend, uint8_t errorCode) {
 	dataToSend[1] = 0xfe;  // packet response NOT ok
 	dataToSend[2] = errorCode;
 	XcpCalculateChecksum(dataToSend);
-	GOxcp_sendData(dataToSend);
+	GO_xcp_send_data(dataToSend);
 }
 
 /***************************************************************************************
@@ -442,7 +442,7 @@ static void XcpConnectReply(uint8_t* dataToSend) {
 											   // Number MSB only
 
 	XcpCalculateChecksum(dataToSend);
-	GOxcp_sendData(dataToSend);
+	GO_xcp_send_data(dataToSend);
 }
 
 /***************************************************************************************
@@ -478,7 +478,7 @@ static void XcpStatusReply(uint8_t* dataToSend) {
 	*(uint16_t*)&dataToSend[5] = 0x0000;	  // Session configuration ID
 
 	XcpCalculateChecksum(dataToSend);
-	GOxcp_sendData(dataToSend);
+	GO_xcp_send_data(dataToSend);
 }
 
 /***************************************************************************************
@@ -516,7 +516,7 @@ static void xcpCommunicationModeReply(uint8_t* dataToSend) {
 	dataToSend[7] = 0x00;  // Ignored Byte
 	dataToSend[8] = 0x14;  // XCP driver version
 	XcpCalculateChecksum(dataToSend);
-	GOxcp_sendData(dataToSend);
+	GO_xcp_send_data(dataToSend);
 }
 
 /***************************************************************************************
@@ -541,7 +541,7 @@ static void XcpGetIdReply(uint8_t* dataToSend) {
 	*(uint32_t*)&dataToSend[5] =
 		xcpCommunication.idRequest;	 // Length of ID string
 	XcpCalculateChecksum(dataToSend);
-	GOxcp_sendData(dataToSend);
+	GO_xcp_send_data(dataToSend);
 }
 
 /***************************************************************************************
@@ -629,13 +629,13 @@ static void XcpUploadReply(uint8_t* dataReceived, uint8_t* dataToSend) {
 
 		for (uint8_t dataPointer = 0; dataPointer < dataReceived[1];
 			 dataPointer++) {
-			GOxcp_readData(&dataToSend[2 + dataPointer], 1,
+			GO_xcp_read_data(&dataToSend[2 + dataPointer], 1,
 						(uint32_t*)(uintptr_t)xcpWrite.adress++);
 		}
 	}
 
 	XcpCalculateChecksum(dataToSend);
-	GOxcp_sendData(dataToSend);
+	GO_xcp_send_data(dataToSend);
 }
 
 /***************************************************************************************
@@ -660,12 +660,12 @@ static void XcpShortUploadReply(uint8_t* dataReceived, uint8_t* dataToSend) {
 
 	for (uint8_t dataPointer = 0; dataPointer < dataReceived[1];
 		 dataPointer++) {
-		GOxcp_readData(&dataToSend[2 + dataPointer], 1,
+		GO_xcp_read_data(&dataToSend[2 + dataPointer], 1,
 					(uint32_t*)(((uint8_t*)location) + dataPointer));
 	}
 
 	XcpCalculateChecksum(dataToSend);
-	GOxcp_sendData(dataToSend);
+	GO_xcp_send_data(dataToSend);
 }
 
 /**************************************************************************************
@@ -681,7 +681,7 @@ static void XcpUserCommand(uint8_t* dataReceived, uint8_t* dataToSend) {
 	dbg("XCP user command\n");
 
 	// CALL USERCOMMAND, DEFINED IN XcpTargetSpecific.c
-	if (GOxcp_userCmd(dataReceived) == 0) {
+	if (GO_xcp_user_cmd(dataReceived) == 0) {
 		XcpPositiveResponse(dataToSend);  // only positive response is required
 	} else {
 		XcpNegativeResponse(dataToSend, XCPERRCMDUNKNOWN);
@@ -702,7 +702,7 @@ static void XcpUserCommand(uint8_t* dataReceived, uint8_t* dataToSend) {
 static void XcpDownload(uint8_t* dataReceived, uint8_t* dataToSend) {
 	dbg("XCP \n");
 
-	GOxcp_writeData(&dataReceived[2], dataReceived[1],
+	GO_xcp_write_data(&dataReceived[2], dataReceived[1],
 				 (void*)(uintptr_t)xcpWrite.adress);
 	XcpPositiveResponse(dataToSend);
 }
@@ -823,7 +823,7 @@ static void XcpStartStopDaqList(uint8_t* dataReceived, uint8_t* dataToSend) {
 #endif
 
 	XcpCalculateChecksum(dataToSend);
-	GOxcp_sendData(dataToSend);
+	GO_xcp_send_data(dataToSend);
 
 #if DYNAMICMEMORYALLOCATION == 1 || DYNAMICMEMORYALLOCATIONFREERTOS == 1
 	daq[*(uint16_t*)&dataReceived[2]].listStatus =
@@ -860,7 +860,7 @@ static void XcpDaqProcessorInfoReply(uint8_t* dataToSend) {
 	dataToSend[8] = 0x00;				  // DAQ key byte
 
 	XcpCalculateChecksum(dataToSend);
-	GOxcp_sendData(dataToSend);
+	GO_xcp_send_data(dataToSend);
 }
 
 /***************************************************************************************
@@ -889,7 +889,7 @@ static void XcpDaqEventInfoReply(uint8_t* dataReceived, uint8_t* dataToSend) {
 	xcpCommunication.daqEventRequest = dataReceived[2] + 1;
 
 	XcpCalculateChecksum(dataToSend);
-	GOxcp_sendData(dataToSend);
+	GO_xcp_send_data(dataToSend);
 }
 
 /***************************************************************************************
@@ -911,7 +911,7 @@ static void XcpDaqResolutionInfoReply(uint8_t* dataToSend) {
 	*(uint16_t*)&dataToSend[7] = 0x0001;  // Timestamp ticks
 
 	XcpCalculateChecksum(dataToSend);
-	GOxcp_sendData(dataToSend);
+	GO_xcp_send_data(dataToSend);
 }
 
 /***************************************************************************************
@@ -1287,7 +1287,7 @@ void XcpDataTransmission(void) {
 						 odtEntryCount <
 						 daq[daqListCount].odt[odtCount].nrOfOdtEntries;
 						 odtEntryCount++) {
-						GOxcp_readData(&data[dataPointer],
+						GO_xcp_read_data(&data[dataPointer],
 									daq[daqListCount]
 										.odt[odtCount]
 										.entry[odtEntryCount]
@@ -1308,7 +1308,7 @@ void XcpDataTransmission(void) {
 							  1;  // dataPointer starts @ index 2 0 = length of
 								  // message , 1 = ODT  2 = actual message
 					XcpCalculateChecksum(&data[0]);
-					if (GOxcp_sendData(&data[0])) {
+					if (GO_xcp_send_data(&data[0])) {
 						// data failed to send
 						xcpCommunication.status = 0;
 						return;
@@ -1338,7 +1338,7 @@ void XcpDataTransmission(void) {
 						 odtEntryCount < odt->nrOfOdtEntries; odtEntryCount++) {
 						_entry* entry = XcpGetOdtEntry(daqListCount, odtCount,
 													   odtEntryCount);
-						GOxcp_readData(&data[dataPointer], entry->sizeOfDaqElement,
+						GO_xcp_read_data(&data[dataPointer], entry->sizeOfDaqElement,
 									(uint32_t*)entry->adressOfDaqElement);
 						dataPointer = dataPointer + entry->sizeOfDaqElement;
 					}
@@ -1346,7 +1346,7 @@ void XcpDataTransmission(void) {
 							  1;  // dataPointer starts @ index 2 0 = length of
 								  // message , 1 = ODT  2 = actual message
 					XcpCalculateChecksum(&data[0]);
-					GOxcp_sendData(&data[0]);
+					GO_xcp_send_data(&data[0]);
 					data[1]++;
 				}
 				daq->prescalerActual = 0;  // reset the daqListCount for timing

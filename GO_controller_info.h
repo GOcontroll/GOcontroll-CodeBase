@@ -104,21 +104,21 @@ void GO_controller_info_get_rtc_time(_rtcTime *time);
 **            (high-water mark). Call at low frequency — scans the full stack.
 ** \return    Remaining stack in bytes (IoT only; returns 0 on Linux).
 ***************************************************************************************/
-uint32_t GOcontrollerinfo_getModelStack(void);
+uint32_t GO_controller_info_get_model_stack(void);
 
 /**************************************************************************************
 ** \brief     Return the minimum free stack ever recorded for the XCP thread
 **            (high-water mark). Call at low frequency — scans the full stack.
 ** \return    Remaining stack in bytes (IoT only; returns 0 on Linux).
 ***************************************************************************************/
-uint32_t GOcontrollerinfo_getXcpStack(void);
+uint32_t GO_controller_info_get_xcp_stack(void);
 
 /**************************************************************************************
 ** \brief     Return the current FreeRTOS free heap size.
 **            Updated every ~1 s by ControllerInfoTask in GO_board.c.
 ** \return    Free heap in bytes (IoT only; returns 0 on Linux).
 ***************************************************************************************/
-uint32_t GOcontrollerinfo_getFreeHeap(void);
+uint32_t GO_controller_info_get_free_heap(void);
 
 /**************************************************************************************
 ** \brief     Return the CPU load as a percentage (0-100).
@@ -126,4 +126,4 @@ uint32_t GOcontrollerinfo_getFreeHeap(void);
 **            Updated every ~1 s by ControllerInfoTask in GO_board.c.
 ** \return    CPU load percentage (IoT only; returns 0 on Linux).
 ***************************************************************************************/
-uint8_t GOcontrollerinfo_getCpuLoad(void);
+uint8_t GO_controller_info_get_cpu_load(void);

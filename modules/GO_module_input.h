@@ -118,7 +118,7 @@ typedef struct {
 **                         relevant module configuration.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmoduleinput_configuration(_inputModule* inputModule);
+int GO_module_input_configuration(_inputModule* inputModule);
 
 /**************************************************************************************
 ** \brief     Retrieves measurement values from the input module via SPI.
@@ -126,7 +126,7 @@ int GOmoduleinput_configuration(_inputModule* inputModule);
 **                         relevant module configuration.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmoduleinput_receiveValues(_inputModule* inputModule);
+int GO_module_input_receive_values(_inputModule* inputModule);
 
 /**************************************************************************************
 ** \brief     Sends a new pulse counter value to a specified channel of the input module.
@@ -137,7 +137,7 @@ int GOmoduleinput_receiveValues(_inputModule* inputModule);
 ** \param     trigger      Change on this input will trigger a send to the module.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmoduleinput_resetPulsCounter(_inputModule* inputModule, uint8_t channel,
+int GO_module_input_reset_puls_counter(_inputModule* inputModule, uint8_t channel,
 								 int32_t value, uint8_t trigger);
 
 /**************************************************************************************
@@ -147,7 +147,7 @@ int GOmoduleinput_resetPulsCounter(_inputModule* inputModule, uint8_t channel,
 ** \param     moduleSlot   The slot index (0-based) that the module is inserted in.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmoduleinput_setModuleSlot(_inputModule* inputModule, uint8_t moduleSlot);
+int GO_module_input_set_module_slot(_inputModule* inputModule, uint8_t moduleSlot);
 
 /**************************************************************************************
 ** \brief     Sets the module type (6 or 10 channel) for an input module.
@@ -157,7 +157,7 @@ int GOmoduleinput_setModuleSlot(_inputModule* inputModule, uint8_t moduleSlot);
 **                         INPUTMODULE10CHANNEL.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmoduleinput_setModuleType(_inputModule* inputModule, uint8_t moduleType);
+int GO_module_input_set_module_type(_inputModule* inputModule, uint8_t moduleType);
 
 /**************************************************************************************
 ** \brief     Configures an input channel on a 6-channel input module.
@@ -172,7 +172,7 @@ int GOmoduleinput_setModuleType(_inputModule* inputModule, uint8_t moduleType);
 ** \param     analog_filter_samples  Number of analog filter samples per measurement, range 0-1000.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmoduleinput_6chConfigureChannel(_inputModule* inputModule, uint8_t channel,
+int GO_module_input_6ch_configure_channel(_inputModule* inputModule, uint8_t channel,
 									uint8_t func, uint8_t voltage_range,
 									uint8_t pull_up, uint8_t pull_down,
 									uint8_t pulses_per_rotation,
@@ -188,7 +188,7 @@ int GOmoduleinput_6chConfigureChannel(_inputModule* inputModule, uint8_t channel
 ** \param     pull_down    Pull-down resistor selection (use INPUTPULLDOWN* macros).
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmoduleinput_10chConfigureChannel(_inputModule* inputModule, uint8_t channel,
+int GO_module_input_10ch_configure_channel(_inputModule* inputModule, uint8_t channel,
 									 uint8_t func, uint8_t pull_up,
 									 uint8_t pull_down);
 
@@ -201,7 +201,7 @@ int GOmoduleinput_10chConfigureChannel(_inputModule* inputModule, uint8_t channe
 ** \param     supply3      State of sensor supply 3 (use INPUTSENSSUPPLYON or INPUTSENSSUPPLYOFF).
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmoduleinput_6chConfigureSupply(_inputModule* inputModule, uint8_t supply1,
+int GO_module_input_6ch_configure_supply(_inputModule* inputModule, uint8_t supply1,
 								   uint8_t supply2, uint8_t supply3);
 
 /**************************************************************************************
@@ -211,6 +211,6 @@ int GOmoduleinput_6chConfigureSupply(_inputModule* inputModule, uint8_t supply1,
 ** \param     supply1      State of the sensor supply (use INPUTSENSSUPPLYON or INPUTSENSSUPPLYOFF).
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmoduleinput_10chConfigureSupply(_inputModule* inputModule, uint8_t supply1);
+int GO_module_input_10ch_configure_supply(_inputModule* inputModule, uint8_t supply1);
 
 #endif /* GO_MODULE_INPUT_H */

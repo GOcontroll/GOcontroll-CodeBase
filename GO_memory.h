@@ -72,7 +72,7 @@ void GO_memory_emulation_initialize(void);
 ** \param     oldValue  previous value; updated on write. Pass NULL on first init.
 ** \return    none
 ***************************************************************************************/
-void GOmemory_emulationWrite(char *key, float value, float *oldValue);
+void GO_memory_emulation_write(char *key, float value, float *oldValue);
 
 /**************************************************************************************
 ** \brief     Read a key-value pair from persistent storage.
@@ -82,7 +82,7 @@ void GOmemory_emulationWrite(char *key, float value, float *oldValue);
 ** \param     value  output pointer; unchanged if the key is not found
 ** \return    none
 ***************************************************************************************/
-void GOmemory_emulationRead(char *key, float *value);
+void GO_memory_emulation_read(char *key, float *value);
 
 /****************************************************************************************
  * Function prototypes — MemoryDiagnostic
@@ -94,7 +94,7 @@ void GOmemory_emulationRead(char *key, float *value);
 **            STM32:  TODO — initialize Flash/EEPROM DTC region.
 ** \return    none
 ***************************************************************************************/
-void GOmemory_diagnosticInitialize(void);
+void GO_memory_diagnostic_initialize(void);
 
 /**************************************************************************************
 ** \brief     Write or update a diagnostic trouble code entry.
@@ -106,7 +106,7 @@ void GOmemory_diagnosticInitialize(void);
 ** \param     messageType       DIAGNOSTICSTART, DIAGNOSTICFREEZE or DIAGNOSTICSTOP
 ** \return    none
 ***************************************************************************************/
-void GOmemory_diagnosticWrite(uint32_t spn, uint8_t fmi, uint8_t oc,
+void GO_memory_diagnostic_write(uint32_t spn, uint8_t fmi, uint8_t oc,
 							  char *freezedDescription,
 							  float freezedParameter,
 							  uint8_t messageType);
@@ -115,20 +115,20 @@ void GOmemory_diagnosticWrite(uint32_t spn, uint8_t fmi, uint8_t oc,
 ** \brief     Count the number of stored diagnostic codes.
 ** \return    number of stored DTCs
 ***************************************************************************************/
-uint16_t GOmemory_diagnosticCountCodes(void);
+uint16_t GO_memory_diagnostic_count_codes(void);
 
 /**************************************************************************************
 ** \brief     Delete all stored diagnostic codes.
 ** \return    none
 ***************************************************************************************/
-void GOmemory_diagnosticDeleteAll(void);
+void GO_memory_diagnostic_delete_all(void);
 
 /**************************************************************************************
 ** \brief     Return the raw DTC value at a given index.
 ** \param     index  zero-based index into the stored DTC list
 ** \return    encoded DTC value, or 0 if not found
 ***************************************************************************************/
-uint32_t GOmemory_diagnosticCodeOnIndex(uint16_t index);
+uint32_t GO_memory_diagnostic_code_on_index(uint16_t index);
 
 /**************************************************************************************
 ** \brief     Delete a single diagnostic code entry.
@@ -137,7 +137,7 @@ uint32_t GOmemory_diagnosticCodeOnIndex(uint16_t index);
 ** \param     oc   Occurrence count
 ** \return    none
 ***************************************************************************************/
-void GOmemory_diagnosticDeleteSingle(uint32_t spn, uint8_t fmi, uint8_t oc);
+void GO_memory_diagnostic_delete_single(uint32_t spn, uint8_t fmi, uint8_t oc);
 
 #endif /* GO_MEMORY_H */
 

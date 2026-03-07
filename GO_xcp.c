@@ -112,7 +112,7 @@ _eventChannel eventChannel[3] = {
 ** \param     location  source memory address
 ** \return    none
 ***************************************************************************************/
-void GOxcp_readData(void *data, uint8_t elements, void *location) {
+void GO_xcp_read_data(void *data, uint8_t elements, void *location) {
 	switch (elements) {
 		case 1:
 			*(uint8_t *)data = *(uint8_t *)location;
@@ -136,7 +136,7 @@ void GOxcp_readData(void *data, uint8_t elements, void *location) {
 ** \param     location  destination memory address
 ** \return    none
 ***************************************************************************************/
-void GOxcp_writeData(void *data, uint8_t elements, void *location) {
+void GO_xcp_write_data(void *data, uint8_t elements, void *location) {
 	// TODO check for write-protected memory areas
 	switch (elements) {
 		case 1:
@@ -204,7 +204,7 @@ void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs)
 ** \param     xcp_receive_id_extended 1 = 29-bit extended ID, 0 = 11-bit standard
 ** \return    none
 ***************************************************************************************/
-void GOxcp_initCan(FDCAN_HandleTypeDef *can_channel,
+void GO_xcp_init_can(FDCAN_HandleTypeDef *can_channel,
 				   uint32_t xcp_send_id, uint32_t xcp_receive_id,
 				   uint8_t xcp_send_id_extended,
 				   uint8_t xcp_receive_id_extended) {
@@ -252,7 +252,7 @@ void GOxcp_initCan(FDCAN_HandleTypeDef *can_channel,
 ** \param     args  unused task argument
 ** \return    none (infinite loop)
 ***************************************************************************************/
-void GOxcp_threadCan(void *args) {
+void GO_xcp_thread_can(void *args) {
 	struct can_frame message;
 
 	while (1) {
@@ -278,7 +278,7 @@ void GOxcp_threadCan(void *args) {
 ** \param     data  pointer to the data array to transmit
 ** \return    0 on success, 1 on failure
 ***************************************************************************************/
-uint8_t GOxcp_sendData(uint8_t *data) {
+uint8_t GO_xcp_send_data(uint8_t *data) {
 	switch (xcpTransmissionBus) {
 		case XCPCAN:
 			return XcpCanSend(data);
@@ -320,14 +320,14 @@ static uint8_t XcpCanSend(uint8_t *data) {
 ** \brief     Stop the active XCP connection and release resources.
 ** \return    none
 ***************************************************************************************/
-void GOxcp_stopConnection(void) { return; }
+void GO_xcp_stop_connection(void) { return; }
 
 /**************************************************************************************
 ** \brief     Handle a user-defined XCP command (transport-specific behaviour).
 ** \param     dataReceived  pointer to the received XCP command bytes
 ** \return    0 on success, -1 on unrecognised command
 ***************************************************************************************/
-uint8_t GOxcp_userCmd(uint8_t *dataReceived) { return 0; }
+uint8_t GO_xcp_user_cmd(uint8_t *dataReceived) { return 0; }
 
 /****************************************************************************************
  ****************************************************************************************
@@ -429,7 +429,7 @@ static void expired(union sigval timer_data) {
 ** \param     aArgument  unused
 ** \return    none
 ***************************************************************************************/
-void *GOxcp_initializeTcp(void *aArgument) {
+void *GO_xcp_initialize_tcp(void *aArgument) {
 	xcpTransmissionBus = XCPETH;
 	struct sockaddr_in XcpSocketAddr, XCPclientAddr;
 	socklen_t	   XCPclientAddrLen;
@@ -514,7 +514,7 @@ void *GOxcp_initializeTcp(void *aArgument) {
 ** \param     aArgument  unused
 ** \return    none
 ***************************************************************************************/
-void *GOxcp_initializeUdp(void *aArgument) {
+void *GO_xcp_initialize_udp(void *aArgument) {
 	xcpTransmissionBus = XCPETH;
 	struct sockaddr_in XcpSocketAddr;
 	int		   result;
@@ -568,7 +568,7 @@ void *GOxcp_initializeUdp(void *aArgument) {
 ** \param     aArgument  pointer to _XCP_CAN_Args
 ** \return    none
 ***************************************************************************************/
-void *GOxcp_initializeCan(void *aArgument) {
+void *GO_xcp_initialize_can(void *aArgument) {
 	xcpTransmissionBus = XCPCAN;
 	_XCP_CAN_Args	   *args = (_XCP_CAN_Args *)aArgument;
 	xcpCanParameters.xcpDtoId = args->xcp_send_id;
@@ -711,7 +711,7 @@ static int ServeCANXcpConnection(void) {
 ** \param     data  pointer to the data array to transmit
 ** \return    0 on success, 1 on failure
 ***************************************************************************************/
-uint8_t GOxcp_sendData(uint8_t *data) {
+uint8_t GO_xcp_send_data(uint8_t *data) {
 	switch (xcpTransmissionBus) {
 		case XCPETH:
 			return XcpEthSend(data);
@@ -773,7 +773,7 @@ static uint8_t XcpCanSend(uint8_t *data) {
 ** \brief     Stop the active XCP connection and release resources.
 ** \return    none
 ***************************************************************************************/
-void GOxcp_stopConnection(void) {
+void GO_xcp_stop_connection(void) {
 	close(XcpSocket);
 	dbg("XCP socket closed\n");
 }
@@ -785,7 +785,7 @@ void GOxcp_stopConnection(void) {
 ** \param     dataReceived  pointer to the received XCP command bytes
 ** \return    0 on success, -1 on unrecognised command
 ***************************************************************************************/
-uint8_t GOxcp_userCmd(uint8_t *dataReceived) {
+uint8_t GO_xcp_user_cmd(uint8_t *dataReceived) {
 	switch (dataReceived[1]) {
 		case 0x10:
 			timeout_sec = (int)(dataReceived[2] << 8) + dataReceived[3];

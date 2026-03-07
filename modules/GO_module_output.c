@@ -62,7 +62,7 @@ extern _hardwareConfig hardwareConfig;
 
 /****************************************************************************************/
 
-int GOmoduleoutput_configuration(_outputModule* outputModule) {
+int GO_module_output_configuration(_outputModule* outputModule) {
 	int res;
 	// module not registered
 	if (hardwareConfig.moduleOccupancy[outputModule->moduleSlot][0] == 0) {
@@ -139,8 +139,8 @@ int GOmoduleoutput_configuration(_outputModule* outputModule) {
 
 /****************************************************************************************/
 
-int GOmoduleoutput_sendValues(_outputModule* outputModule) {
-	int res = 0;
+int GO_module_output_send_values(_outputModule* outputModule) {
+	int res;
 	// module not registered
 	if (hardwareConfig.moduleOccupancy[outputModule->moduleSlot][0] == 0) {
 		return -ENODEV;
@@ -235,7 +235,7 @@ int GOmoduleoutput_sendValues(_outputModule* outputModule) {
 
 /****************************************************************************************/
 
-int GOmoduleoutput_setModuleSlot(_outputModule* outputModule,
+int GO_module_output_set_module_slot(_outputModule* outputModule,
 							   uint8_t moduleSlot) {
 	if (moduleSlot < hardwareConfig.moduleNumber) {
 		if (outputModule->moduleType == OUTPUTMODULE6CHANNEL) {
@@ -264,7 +264,7 @@ int GOmoduleoutput_setModuleSlot(_outputModule* outputModule,
 
 /****************************************************************************************/
 
-int GOmoduleoutput_setModuleType(_outputModule* outputModule,
+int GO_module_output_set_module_type(_outputModule* outputModule,
 							   uint8_t moduleType) {
 	if (moduleType == OUTPUTMODULE6CHANNEL ||
 		moduleType == OUTPUTMODULE10CHANNEL) {
@@ -279,7 +279,7 @@ int GOmoduleoutput_setModuleType(_outputModule* outputModule,
 
 /****************************************************************************************/
 
-int GOmoduleoutput_6chConfigureChannel(_outputModule* outputModule,
+int GO_module_output_6ch_configure_channel(_outputModule* outputModule,
 									 uint8_t channel, uint8_t func,
 									 uint16_t currentMax, uint16_t peak_current,
 									 uint16_t peak_time) {
@@ -339,7 +339,7 @@ int GOmoduleoutput_6chConfigureChannel(_outputModule* outputModule,
 
 /****************************************************************************************/
 
-int GOmoduleoutput_10chConfigureChannel(_outputModule* outputModule,
+int GO_module_output_10ch_configure_channel(_outputModule* outputModule,
 									  uint8_t channel, uint8_t func) {
 	if (outputModule->moduleType != OUTPUTMODULE10CHANNEL) {
 		err("Incorrect module type selected for channel %d, output module in "
@@ -373,7 +373,7 @@ int GOmoduleoutput_10chConfigureChannel(_outputModule* outputModule,
 
 /****************************************************************************************/
 
-int GOmoduleoutput_configureFrequency(_outputModule* outputModule,
+int GO_module_output_configure_frequency(_outputModule* outputModule,
 									uint8_t channel, uint8_t frequency) {
 	if (outputModule->moduleType == OUTPUTMODULE6CHANNEL) {
 		if (channel > 2) {

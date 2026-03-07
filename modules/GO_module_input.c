@@ -66,7 +66,7 @@ extern _hardwareConfig hardwareConfig;
 
 /****************************************************************************************/
 
-int GOmoduleinput_configuration(_inputModule* inputModule) {
+int GO_module_input_configuration(_inputModule* inputModule) {
 	// module not registered
 	if (hardwareConfig.moduleOccupancy[inputModule->moduleSlot][0] == 0) {
 		return -ENODEV;
@@ -136,7 +136,7 @@ int GOmoduleinput_configuration(_inputModule* inputModule) {
 
 /****************************************************************************************/
 
-int GOmoduleinput_receiveValues(_inputModule* inputModule) {
+int GO_module_input_receive_values(_inputModule* inputModule) {
 	// module not registered
 	if (hardwareConfig.moduleOccupancy[inputModule->moduleSlot][0] == 0) {
 		return -ENODEV;
@@ -191,9 +191,9 @@ int GOmoduleinput_receiveValues(_inputModule* inputModule) {
 
 /****************************************************************************************/
 
-int GOmoduleinput_resetPulsCounter(_inputModule* inputModule, uint8_t channel,
+int GO_module_input_reset_puls_counter(_inputModule* inputModule, uint8_t channel,
 								 int32_t value, uint8_t trigger) {
-	int res = 0;
+	int res;
 	// module not registered
 	if (hardwareConfig.moduleOccupancy[inputModule->moduleSlot][0] == 0) {
 		return -ENODEV;
@@ -239,7 +239,7 @@ int GOmoduleinput_resetPulsCounter(_inputModule* inputModule, uint8_t channel,
 
 /****************************************************************************************/
 
-int GOmoduleinput_setModuleSlot(_inputModule* inputModule, uint8_t moduleSlot) {
+int GO_module_input_set_module_slot(_inputModule* inputModule, uint8_t moduleSlot) {
 	if (moduleSlot < hardwareConfig.moduleNumber) {
 		if (inputModule->moduleType == INPUTMODULE6CHANNEL) {
 			if (!memcmp(hardwareConfig.moduleOccupancy[moduleSlot],
@@ -267,7 +267,7 @@ int GOmoduleinput_setModuleSlot(_inputModule* inputModule, uint8_t moduleSlot) {
 
 /****************************************************************************************/
 
-int GOmoduleinput_setModuleType(_inputModule* inputModule, uint8_t moduleType) {
+int GO_module_input_set_module_type(_inputModule* inputModule, uint8_t moduleType) {
 	if (moduleType == INPUTMODULE6CHANNEL ||
 		moduleType == INPUTMODULE10CHANNEL) {
 		inputModule->moduleType = moduleType;
@@ -281,7 +281,7 @@ int GOmoduleinput_setModuleType(_inputModule* inputModule, uint8_t moduleType) {
 
 /****************************************************************************************/
 
-int GOmoduleinput_6chConfigureChannel(_inputModule* inputModule, uint8_t channel,
+int GO_module_input_6ch_configure_channel(_inputModule* inputModule, uint8_t channel,
 									uint8_t func, uint8_t voltage_range,
 									uint8_t pull_up, uint8_t pull_down,
 									uint8_t pulses_per_rotation,
@@ -361,7 +361,7 @@ int GOmoduleinput_6chConfigureChannel(_inputModule* inputModule, uint8_t channel
 
 /****************************************************************************************/
 
-int GOmoduleinput_10chConfigureChannel(_inputModule* inputModule, uint8_t channel,
+int GO_module_input_10ch_configure_channel(_inputModule* inputModule, uint8_t channel,
 									 uint8_t func, uint8_t pull_up,
 									 uint8_t pull_down) {
 	if (inputModule->moduleType != INPUTMODULE10CHANNEL) {
@@ -408,7 +408,7 @@ int GOmoduleinput_10chConfigureChannel(_inputModule* inputModule, uint8_t channe
 
 /****************************************************************************************/
 
-int GOmoduleinput_6chConfigureSupply(_inputModule* inputModule, uint8_t supply1,
+int GO_module_input_6ch_configure_supply(_inputModule* inputModule, uint8_t supply1,
 								   uint8_t supply2, uint8_t supply3) {
 	if (inputModule->moduleType != INPUTMODULE6CHANNEL) {
 		err("Incorrect module type selected for supply configuration in slot "
@@ -431,7 +431,7 @@ int GOmoduleinput_6chConfigureSupply(_inputModule* inputModule, uint8_t supply1,
 
 /****************************************************************************************/
 
-int GOmoduleinput_10chConfigureSupply(_inputModule* inputModule,
+int GO_module_input_10ch_configure_supply(_inputModule* inputModule,
 									uint8_t supply1) {
 	if (inputModule->moduleType != INPUTMODULE10CHANNEL) {
 		err("Incorrect module type selected for supply configuration in slot "

@@ -324,7 +324,7 @@ void GO_memory_emulation_initialize(void) {
 ** \param     oldValue  previous value; updated on write. Pass NULL on first init.
 ** \return    none
 ***************************************************************************************/
-void GOmemory_emulationWrite(char *key, float value, float *oldValue) {
+void GO_memory_emulation_write(char *key, float value, float *oldValue) {
 	if (oldValue != NULL) {
 		if (value == *oldValue) {
 			return;  /* value unchanged — skip write */
@@ -333,7 +333,7 @@ void GOmemory_emulationWrite(char *key, float value, float *oldValue) {
 	} else {
 		/* Initialisation call: skip write if a value is already stored */
 		float stored = (float)0xffffffff;
-		GOmemory_emulationRead(key, &stored);
+		GO_memory_emulation_read(key, &stored);
 		if (stored != (float)0xffffffff) {
 			return;
 		}
@@ -370,7 +370,7 @@ void GOmemory_emulationWrite(char *key, float value, float *oldValue) {
 ** \param     value  output pointer; unchanged if the key is not found
 ** \return    none
 ***************************************************************************************/
-void GOmemory_emulationRead(char *key, float *value) {
+void GO_memory_emulation_read(char *key, float *value) {
 	uint32_t h = nvm_hash(key);
 
 	/* Scan from end to beginning — last written entry for this key wins */
@@ -402,7 +402,7 @@ static uint32_t dtc_encode(uint32_t spn, uint8_t fmi, uint8_t oc) {
 **            STM32:  TODO — initialize Flash/EEPROM DTC region.
 ** \return    none
 ***************************************************************************************/
-void GOmemory_diagnosticInitialize(void) {
+void GO_memory_diagnostic_initialize(void) {
 	uint32_t idx_a = dtc_find_write_idx(NVM_DTC_PAGE_A_ADDR);
 	uint32_t idx_b = dtc_find_write_idx(NVM_DTC_PAGE_B_ADDR);
 
@@ -432,7 +432,7 @@ void GOmemory_diagnosticInitialize(void) {
 ** \param     messageType       DIAGNOSTICSTART, DIAGNOSTICFREEZE or DIAGNOSTICSTOP
 ** \return    none
 ***************************************************************************************/
-void GOmemory_diagnosticWrite(uint32_t spn, uint8_t fmi, uint8_t oc,
+void GO_memory_diagnostic_write(uint32_t spn, uint8_t fmi, uint8_t oc,
                               char *freezedDescription,
                               float freezedParameter,
                               uint8_t messageType) {
@@ -480,7 +480,7 @@ void GOmemory_diagnosticWrite(uint32_t spn, uint8_t fmi, uint8_t oc,
 ** \brief     Count the number of stored diagnostic codes.
 ** \return    number of stored DTCs
 ***************************************************************************************/
-uint16_t GOmemory_diagnosticCountCodes(void) {
+uint16_t GO_memory_diagnostic_count_codes(void) {
 	uint16_t count = 0U;
 	for (uint32_t i = 0U; i < s_dtc_write_idx; i++) {
 		const nvm_dtc_entry_t *e =
@@ -496,7 +496,7 @@ uint16_t GOmemory_diagnosticCountCodes(void) {
 ** \brief     Delete all stored diagnostic codes.
 ** \return    none
 ***************************************************************************************/
-void GOmemory_diagnosticDeleteAll(void) {
+void GO_memory_diagnostic_delete_all(void) {
 	uint32_t sector_a = (s_dtc_active == NVM_DTC_PAGE_A_ADDR)
 	                    ? NVM_DTC_PAGE_A_SECTOR
 	                    : NVM_DTC_PAGE_B_SECTOR;
@@ -514,7 +514,7 @@ void GOmemory_diagnosticDeleteAll(void) {
 ** \param     index  zero-based index into the stored DTC list
 ** \return    encoded DTC value, or 0 if not found
 ***************************************************************************************/
-uint32_t GOmemory_diagnosticCodeOnIndex(uint16_t index) {
+uint32_t GO_memory_diagnostic_code_on_index(uint16_t index) {
 	uint16_t valid_count = 0U;
 	for (uint32_t i = 0U; i < s_dtc_write_idx; i++) {
 		const nvm_dtc_entry_t *e =
@@ -536,7 +536,7 @@ uint32_t GOmemory_diagnosticCodeOnIndex(uint16_t index) {
 ** \param     oc   Occurrence count
 ** \return    none
 ***************************************************************************************/
-void GOmemory_diagnosticDeleteSingle(uint32_t spn, uint8_t fmi, uint8_t oc) {
+void GO_memory_diagnostic_delete_single(uint32_t spn, uint8_t fmi, uint8_t oc) {
 	uint32_t code = dtc_encode(spn, fmi, oc);
 
 	for (uint32_t i = 0U; i < s_dtc_write_idx; i++) {
@@ -605,7 +605,7 @@ void GO_memory_emulation_initialize(void) {
 ** \param     oldValue  previous value; updated on write. Pass NULL on first init.
 ** \return    none
 ***************************************************************************************/
-void GOmemory_emulationWrite(char *key, float value, float *oldValue) {
+void GO_memory_emulation_write(char *key, float value, float *oldValue) {
 	if (oldValue != NULL) {
 		if (value == *oldValue) {
 			return;
@@ -614,7 +614,7 @@ void GOmemory_emulationWrite(char *key, float value, float *oldValue) {
 	} else {
 		/* Initialisation call: skip write if a value is already stored */
 		float dummy = (float)0xffffffff;
-		GOmemory_emulationRead(key, &dummy);
+		GO_memory_emulation_read(key, &dummy);
 		if (dummy != (float)0xffffffff) {
 			return;
 		}
@@ -638,7 +638,7 @@ void GOmemory_emulationWrite(char *key, float value, float *oldValue) {
 ** \param     value  output pointer; unchanged if the key is not found
 ** \return    none
 ***************************************************************************************/
-void GOmemory_emulationRead(char *key, float *value) {
+void GO_memory_emulation_read(char *key, float *value) {
 	int fileId = open(key, O_RDONLY | O_NONBLOCK);
 	if (fileId <= 0) {
 		close(fileId);
@@ -665,7 +665,7 @@ static int remove_directory(const char *path);
 **            STM32:  TODO — initialize Flash/EEPROM DTC region.
 ** \return    none
 ***************************************************************************************/
-void GOmemory_diagnosticInitialize(void) {
+void GO_memory_diagnostic_initialize(void) {
 	struct stat st = {0};
 	if (stat("/usr/mem-diag", &st) == -1) {
 		mkdir("/usr/mem-diag", 0555);
@@ -684,7 +684,7 @@ void GOmemory_diagnosticInitialize(void) {
 ** \param     messageType       DIAGNOSTICSTART, DIAGNOSTICFREEZE or DIAGNOSTICSTOP
 ** \return    none
 ***************************************************************************************/
-void GOmemory_diagnosticWrite(uint32_t spn, uint8_t fmi, uint8_t oc,
+void GO_memory_diagnostic_write(uint32_t spn, uint8_t fmi, uint8_t oc,
 							  char *freezedDescription,
 							  float freezedParameter,
 							  uint8_t messageType) {
@@ -729,7 +729,7 @@ void GOmemory_diagnosticWrite(uint32_t spn, uint8_t fmi, uint8_t oc,
 ** \brief     Count the number of stored diagnostic codes.
 ** \return    number of stored DTCs
 ***************************************************************************************/
-uint16_t GOmemory_diagnosticCountCodes(void) {
+uint16_t GO_memory_diagnostic_count_codes(void) {
 	uint16_t	file_count = 0;
 	DIR	       *dirp;
 	struct dirent  *entry;
@@ -753,7 +753,7 @@ uint16_t GOmemory_diagnosticCountCodes(void) {
 ** \brief     Delete all stored diagnostic codes.
 ** \return    none
 ***************************************************************************************/
-void GOmemory_diagnosticDeleteAll(void) {
+void GO_memory_diagnostic_delete_all(void) {
 	char path[20] = {0};
 	strcat(path, "/usr/mem-diag/");
 	if (remove_directory(path) == 0) {
@@ -768,7 +768,7 @@ void GOmemory_diagnosticDeleteAll(void) {
 ** \param     index  zero-based index into the stored DTC list
 ** \return    encoded DTC value, or 0 if not found
 ***************************************************************************************/
-uint32_t GOmemory_diagnosticCodeOnIndex(uint16_t index) {
+uint32_t GO_memory_diagnostic_code_on_index(uint16_t index) {
 	char	      path[20] = {0};
 	DIR	     *d;
 	struct dirent *dir;
@@ -802,7 +802,7 @@ uint32_t GOmemory_diagnosticCodeOnIndex(uint16_t index) {
 ** \param     oc   Occurrence count
 ** \return    none
 ***************************************************************************************/
-void GOmemory_diagnosticDeleteSingle(uint32_t spn, uint8_t fmi, uint8_t oc) {
+void GO_memory_diagnostic_delete_single(uint32_t spn, uint8_t fmi, uint8_t oc) {
 	uint32_t diagnosticCode;
 
 	diagnosticCode  = (spn & 0xffff);

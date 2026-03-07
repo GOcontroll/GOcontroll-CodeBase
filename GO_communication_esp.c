@@ -167,7 +167,7 @@ static void DispatchFrame(uint8_t msg_id, const uint8_t *payload, uint16_t len)
         case ESPIF_MSG_MQTT_STATUS:
             if (len == 1u)
             {
-                GOcommunicationesp_onMqttStatus(payload[0]);
+                GO_communication_esp_on_mqtt_status(payload[0]);
             }
             break;
 
@@ -202,7 +202,7 @@ static void DispatchFrame(uint8_t msg_id, const uint8_t *payload, uint16_t len)
                 uint8_t  hour   = payload[4];
                 uint8_t  minute = payload[5];
                 uint8_t  second = payload[6];
-                GOcommunicationesp_onTimeSync(year, month, day, hour, minute, second);
+                GO_communication_esp_on_time_sync(year, month, day, hour, minute, second);
                 SendAck(ESPIF_MSG_TIME_SYNC);
             }
             break;
@@ -213,7 +213,7 @@ static void DispatchFrame(uint8_t msg_id, const uint8_t *payload, uint16_t len)
             {
                 EspInterface_GpsData_t gps;
                 memcpy(&gps, payload, sizeof(gps));
-                GOcommunicationesp_onGpsData(&gps);
+                GO_communication_esp_on_gps_data(&gps);
             }
             break;
 
@@ -229,7 +229,7 @@ static void DispatchFrame(uint8_t msg_id, const uint8_t *payload, uint16_t len)
                 uint8_t copy_len = (ip_len > 15u) ? 15u : ip_len;
                 memcpy(ip, payload + 2u, copy_len);
             }
-            GOcommunicationesp_onModemStatus(state, ip);
+            GO_communication_esp_on_modem_status(state, ip);
             break;
         }
 
@@ -241,7 +241,7 @@ static void DispatchFrame(uint8_t msg_id, const uint8_t *payload, uint16_t len)
 }
 
 /*==============================================================================================
-** RX state machine — driven byte-by-byte from GOcommunicationesp_uartRxCallback().
+** RX state machine — driven byte-by-byte from GO_communication_esp_uart_rx_callback().
 ==============================================================================================*/
 
 static void ProcessRxByte(uint8_t byte)
@@ -328,7 +328,7 @@ static void ProcessRxByte(uint8_t byte)
 ** \param     huart  Pointer to the HAL UART handle to use for ESP communication.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_init(UART_HandleTypeDef *huart)
+void GO_communication_esp_init(UART_HandleTypeDef *huart)
 {
     s_huart    = huart;
     s_rx_state = RX_SOF0;
@@ -342,7 +342,7 @@ void GOcommunicationesp_init(UART_HandleTypeDef *huart)
 ** \param     huart  Pointer to the HAL UART handle that triggered the callback.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_uartRxCallback(UART_HandleTypeDef *huart)
+void GO_communication_esp_uart_rx_callback(UART_HandleTypeDef *huart)
 {
     if (huart != s_huart) { return; }
     ProcessRxByte(s_rx_byte);
@@ -356,7 +356,7 @@ void GOcommunicationesp_uartRxCallback(UART_HandleTypeDef *huart)
 **            ESPIF_MSG_STATIC_INFO frame to the ESP. Call once after startup.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_sendStaticInfo(void)
+void GO_communication_esp_send_static_info(void)
 {
 
     EspInterface_StaticInfo_t info;
@@ -407,7 +407,7 @@ SEGGER_RTT_printf(0, "Send serial info\n");
 **            Call periodically, typically every 200 ms.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_sendCyclicInfo(void)
+void GO_communication_esp_send_cyclic_info(void)
 {
     EspInterface_CyclicInfo_t info;
     GOcontrollControllerInfo_t imu;
@@ -428,10 +428,10 @@ void GOcommunicationesp_sendCyclicInfo(void)
     info.accel_x         = (int16_t)imu.acc_x;
     info.accel_y         = (int16_t)imu.acc_y;
     info.accel_z         = (int16_t)imu.acc_z;
-    info.cpu_load        = GOcontrollerinfo_getCpuLoad();
+    info.cpu_load        = GO_controller_info_get_cpu_load();
 
-    heap  = GOcontrollerinfo_getFreeHeap();
-    stack = GOcontrollerinfo_getModelStack();
+    heap  = GO_controller_info_get_free_heap();
+    stack = GO_controller_info_get_model_stack();
     info.heap_available  = (heap  > 0xFFFFu) ? 0xFFFFu : (uint16_t)heap;
     info.stack_available = (stack > 0xFFFFu) ? 0xFFFFu : (uint16_t)stack;
 
@@ -444,7 +444,7 @@ void GOcommunicationesp_sendCyclicInfo(void)
 ** \param     sim_pin  Null-terminated SIM PIN string, or NULL / "" when no PIN required.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_setModemConfig(const char *apn, const char *sim_pin)
+void GO_communication_esp_set_modem_config(const char *apn, const char *sim_pin)
 {
     if (apn == NULL) { return; }
 
@@ -476,7 +476,7 @@ void GOcommunicationesp_setModemConfig(const char *apn, const char *sim_pin)
 ** \param     enable  true to enable, false to disable.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_enableLte(bool enable)
+void GO_communication_esp_enable_lte(bool enable)
 {
     uint8_t val = enable ? 1u : 0u;
     SendFrame(ESPIF_MSG_LTE_ENABLE, &val, 1u);
@@ -493,7 +493,7 @@ void GOcommunicationesp_enableLte(bool enable)
 ** \param     keep_alive  Keep-alive interval in seconds.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_setMqttConfig(const char *url, uint16_t port,
+void GO_communication_esp_set_mqtt_config(const char *url, uint16_t port,
                                   const char *user, const char *pass,
                                   const char *client_id, uint16_t keep_alive)
 {
@@ -531,7 +531,7 @@ void GOcommunicationesp_setMqttConfig(const char *url, uint16_t port,
 ** \param     enable  true to enable, false to disable.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_enableMqtt(bool enable)
+void GO_communication_esp_enable_mqtt(bool enable)
 {
     uint8_t val = enable ? 1u : 0u;
     SendFrame(ESPIF_MSG_MQTT_ENABLE, &val, 1u);
@@ -547,7 +547,7 @@ void GOcommunicationesp_enableMqtt(bool enable)
 ** \param     retain  1 = broker retains the message for new subscribers, 0 = no retain.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_mqttPublish(const char *topic, const uint8_t *payload,
+void GO_communication_esp_mqtt_publish(const char *topic, const uint8_t *payload,
                                uint16_t len, uint8_t qos, uint8_t retain)
 {
     if (topic == NULL) { return; }
@@ -579,7 +579,7 @@ void GOcommunicationesp_mqttPublish(const char *topic, const uint8_t *payload,
 ** \param     enable  true to enable, false to disable.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_enableGps(bool enable)
+void GO_communication_esp_enable_gps(bool enable)
 {
     uint8_t val = enable ? 1u : 0u;
     SendFrame(ESPIF_MSG_GPS_ENABLE, &val, 1u);
@@ -591,7 +591,7 @@ void GOcommunicationesp_enableGps(bool enable)
 ** \param     qos    QoS level (0, 1 or 2).
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_mqttSubscribe(const char *topic, uint8_t qos)
+void GO_communication_esp_mqtt_subscribe(const char *topic, uint8_t qos)
 {
     if (topic == NULL) { return; }
     /* Layout: qos(u8) + topic_len(u8) + topic */
@@ -607,12 +607,12 @@ void GOcommunicationesp_mqttSubscribe(const char *topic, uint8_t qos)
 ** \brief     Register a subscription data block with the driver. The driver will
 **            fill sub->payload, sub->length and sub->new_flag whenever a message
 **            arrives on sub->topic. Call once at model init before
-**            GOcommunicationesp_mqttSubscribe. The pointer must remain valid for
+**            GO_communication_esp_mqtt_subscribe. The pointer must remain valid for
 **            the lifetime of the program.
 ** \param     sub  Pointer to the subscription data struct to register.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_mqttSubRegister(EspInterface_MqttSubData_t *sub)
+void GO_communication_esp_mqtt_sub_register(EspInterface_MqttSubData_t *sub)
 {
     if (sub != NULL && s_mqtt_nsubs < ESPIF_MQTT_SUB_MAX)
     {
@@ -625,7 +625,7 @@ void GOcommunicationesp_mqttSubRegister(EspInterface_MqttSubData_t *sub)
 ** \param     topic  Null-terminated topic string (max 64 chars).
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_mqttUnsubscribe(const char *topic)
+void GO_communication_esp_mqtt_unsubscribe(const char *topic)
 {
     if (topic == NULL) { return; }
     /* Layout: topic_len(u8) + topic */
@@ -639,7 +639,7 @@ void GOcommunicationesp_mqttUnsubscribe(const char *topic)
 /*==============================================================================================
 ** HAL UART callback — routes incoming bytes to the EspInterface RX state machine.
 ** Called from the UART interrupt (HAL_UART_IRQHandler) after each received byte.
-** Re-arming of HAL_UART_Receive_IT is handled inside GOcommunicationesp_uartRxCallback.
+** Re-arming of HAL_UART_Receive_IT is handled inside GO_communication_esp_uart_rx_callback.
 ==============================================================================================*/
 
 /**************************************************************************************
@@ -650,7 +650,7 @@ void GOcommunicationesp_mqttUnsubscribe(const char *topic)
 ***************************************************************************************/
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-    GOcommunicationesp_uartRxCallback(huart);
+    GO_communication_esp_uart_rx_callback(huart);
 }
 
 /*==============================================================================================
@@ -662,7 +662,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 ** \param     status  ESPIF_MQTT_STATUS_DISCONNECTED / _CONNECTING / _CONNECTED.
 ** \return    none
 ***************************************************************************************/
-__attribute__((weak)) void GOcommunicationesp_onMqttStatus(uint8_t status)
+__attribute__((weak)) void GO_communication_esp_on_mqtt_status(uint8_t status)
 {
     (void)status;
 }
@@ -698,7 +698,7 @@ static void EspInterface_OnMqttReceived(const char *topic,
 ** \param     gps  Pointer to the GPS data struct.
 ** \return    none
 ***************************************************************************************/
-__attribute__((weak)) void GOcommunicationesp_onGpsData(const EspInterface_GpsData_t *gps)
+__attribute__((weak)) void GO_communication_esp_on_gps_data(const EspInterface_GpsData_t *gps)
 {
     (void)gps;
 }
@@ -709,7 +709,7 @@ __attribute__((weak)) void GOcommunicationesp_onGpsData(const EspInterface_GpsDa
 ** \param     ip     Null-terminated IP string (empty string when not connected).
 ** \return    none
 ***************************************************************************************/
-__attribute__((weak)) void GOcommunicationesp_onModemStatus(uint8_t state, const char *ip)
+__attribute__((weak)) void GO_communication_esp_on_modem_status(uint8_t state, const char *ip)
 {
     (void)state;
     (void)ip;
@@ -726,7 +726,7 @@ __attribute__((weak)) void GOcommunicationesp_onModemStatus(uint8_t state, const
 ** \param     second  Second of minute (0–59).
 ** \return    none
 ***************************************************************************************/
-__attribute__((weak)) void GOcommunicationesp_onTimeSync(
+__attribute__((weak)) void GO_communication_esp_on_time_sync(
     uint16_t year, uint8_t month, uint8_t day,
     uint8_t hour, uint8_t minute, uint8_t second)
 {

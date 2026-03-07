@@ -118,7 +118,7 @@ extern uint8_t  go_board_cpu_load;
 **            (high-water mark). Call at low frequency — scans the full stack.
 ** \return    Remaining stack in bytes (IoT only; returns 0 on Linux).
 ***************************************************************************************/
-uint32_t GOcontrollerinfo_getModelStack(void) {
+uint32_t GO_controller_info_get_model_stack(void) {
 	return go_board_model_stack_hwm;
 }
 
@@ -127,7 +127,7 @@ uint32_t GOcontrollerinfo_getModelStack(void) {
 **            (high-water mark). Call at low frequency — scans the full stack.
 ** \return    Remaining stack in bytes (IoT only; returns 0 on Linux).
 ***************************************************************************************/
-uint32_t GOcontrollerinfo_getXcpStack(void) {
+uint32_t GO_controller_info_get_xcp_stack(void) {
 	return go_board_xcp_stack_hwm;
 }
 
@@ -135,7 +135,7 @@ uint32_t GOcontrollerinfo_getXcpStack(void) {
 ** \brief     Return the current FreeRTOS free heap size.
 ** \return    Free heap in bytes (IoT only; returns 0 on Linux).
 ***************************************************************************************/
-uint32_t GOcontrollerinfo_getFreeHeap(void) {
+uint32_t GO_controller_info_get_free_heap(void) {
 	return go_board_free_heap;
 }
 
@@ -143,7 +143,7 @@ uint32_t GOcontrollerinfo_getFreeHeap(void) {
 ** \brief     Return the CPU load as a percentage (0-100).
 ** \return    CPU load percentage (IoT only; returns 0 on Linux).
 ***************************************************************************************/
-uint8_t GOcontrollerinfo_getCpuLoad(void) {
+uint8_t GO_controller_info_get_cpu_load(void) {
 	return go_board_cpu_load;
 }
 
@@ -156,24 +156,24 @@ uint8_t GOcontrollerinfo_getCpuLoad(void) {
 ** \brief     Return the minimum free stack ever recorded for the model step task.
 ** \return    Remaining stack in bytes (IoT only; returns 0 on Linux).
 ***************************************************************************************/
-uint32_t GOcontrollerinfo_getModelStack(void) { return 0; }
+uint32_t GO_controller_info_get_model_stack(void) { return 0; }
 
 /**************************************************************************************
 ** \brief     Return the minimum free stack ever recorded for the XCP thread.
 ** \return    Remaining stack in bytes (IoT only; returns 0 on Linux).
 ***************************************************************************************/
-uint32_t GOcontrollerinfo_getXcpStack(void)   { return 0; }
+uint32_t GO_controller_info_get_xcp_stack(void)   { return 0; }
 
 /**************************************************************************************
 ** \brief     Return the current free heap size.
 ** \return    Free heap in bytes (IoT only; returns 0 on Linux).
 ***************************************************************************************/
-uint32_t GOcontrollerinfo_getFreeHeap(void)   { return 0; }
+uint32_t GO_controller_info_get_free_heap(void)   { return 0; }
 
 /**************************************************************************************
 ** \brief     Return the CPU load percentage.
 ** \return    CPU load percentage (IoT only; returns 0 on Linux).
 ***************************************************************************************/
-uint8_t GOcontrollerinfo_getCpuLoad(void)     { return 0; }
+uint8_t GO_controller_info_get_cpu_load(void)     { return 0; }
 
 #endif /* GOCONTROLL_IOT */

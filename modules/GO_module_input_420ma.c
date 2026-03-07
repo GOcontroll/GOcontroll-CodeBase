@@ -58,7 +58,7 @@ extern _hardwareConfig hardwareConfig;
 
 /****************************************************************************************/
 
-int GOmoduleinput420ma_configuration(_inputModule420ma* inputModule420ma) {
+int GO_module_input_420ma_configuration(_inputModule420ma* inputModule420ma) {
 	// module not registered
 	if (hardwareConfig.moduleOccupancy[inputModule420ma->moduleSlot][0] == 0) {
 		return -ENODEV;
@@ -88,7 +88,7 @@ int GOmoduleinput420ma_configuration(_inputModule420ma* inputModule420ma) {
 
 /****************************************************************************************/
 
-int GOmoduleinput420ma_receiveValues(_inputModule420ma* inputModule420ma) {
+int GO_module_input_420ma_receive_values(_inputModule420ma* inputModule420ma) {
 	int res;
 	// module not registered
 	if (hardwareConfig.moduleOccupancy[inputModule420ma->moduleSlot][0] == 0) {

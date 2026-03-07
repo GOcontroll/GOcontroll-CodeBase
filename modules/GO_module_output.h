@@ -149,7 +149,7 @@ typedef struct {
 **                          data for the module configuration.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmoduleoutput_configuration(_outputModule* outputModule);
+int GO_module_output_configuration(_outputModule* outputModule);
 
 /**************************************************************************************
 ** \brief     Sends the output values to the output module and reads back feedback.
@@ -157,7 +157,7 @@ int GOmoduleoutput_configuration(_outputModule* outputModule);
 **                          data for the module configuration.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmoduleoutput_sendValues(_outputModule* outputModule);
+int GO_module_output_send_values(_outputModule* outputModule);
 
 /**************************************************************************************
 ** \brief     Sets the module slot for an output module and validates the slot assignment.
@@ -166,7 +166,7 @@ int GOmoduleoutput_sendValues(_outputModule* outputModule);
 ** \param     moduleSlot    The slot index (0-based) that the module is inserted in.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmoduleoutput_setModuleSlot(_outputModule* outputModule, uint8_t moduleSlot);
+int GO_module_output_set_module_slot(_outputModule* outputModule, uint8_t moduleSlot);
 
 /**************************************************************************************
 ** \brief     Sets the module type (6 or 10 channel) for an output module.
@@ -176,7 +176,7 @@ int GOmoduleoutput_setModuleSlot(_outputModule* outputModule, uint8_t moduleSlot
 **                          OUTPUTMODULE10CHANNEL.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmoduleoutput_setModuleType(_outputModule* outputModule, uint8_t moduleType);
+int GO_module_output_set_module_type(_outputModule* outputModule, uint8_t moduleType);
 
 /**************************************************************************************
 ** \brief     Configures an output channel on a 6-channel output module.
@@ -189,7 +189,7 @@ int GOmoduleoutput_setModuleType(_outputModule* outputModule, uint8_t moduleType
 ** \param     peak_time     Duration of the peak current phase in peak-and-hold mode.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmoduleoutput_6chConfigureChannel(_outputModule* outputModule,
+int GO_module_output_6ch_configure_channel(_outputModule* outputModule,
 									 uint8_t channel, uint8_t func,
 									 uint16_t currentMax, uint16_t peak_current,
 									 uint16_t peak_time);
@@ -202,7 +202,7 @@ int GOmoduleoutput_6chConfigureChannel(_outputModule* outputModule,
 ** \param     func          The function of the channel, range 1-3 (use OUTPUTFUNC_10CH_* macros).
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmoduleoutput_10chConfigureChannel(_outputModule* outputModule,
+int GO_module_output_10ch_configure_channel(_outputModule* outputModule,
 									  uint8_t channel, uint8_t func);
 
 /**************************************************************************************
@@ -213,7 +213,7 @@ int GOmoduleoutput_10chConfigureChannel(_outputModule* outputModule,
 ** \param     frequency     The PWM frequency to set for this channel (use OUTPUTFREQ* macros).
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmoduleoutput_configureFrequency(_outputModule* outputModule,
+int GO_module_output_configure_frequency(_outputModule* outputModule,
 									uint8_t channel, uint8_t frequency);
 
 #endif /* GO_MODULE_OUTPUT_H */

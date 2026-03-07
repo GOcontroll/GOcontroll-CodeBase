@@ -127,7 +127,7 @@ typedef struct {
 ** \param     data  pointer to the data array to transmit
 ** \return    0 on success, 1 on failure
 ***************************************************************************************/
-uint8_t GOxcp_sendData(uint8_t *data);
+uint8_t GO_xcp_send_data(uint8_t *data);
 
 /**************************************************************************************
 ** \brief     Read data from a memory location into the XCP data buffer.
@@ -136,7 +136,7 @@ uint8_t GOxcp_sendData(uint8_t *data);
 ** \param     location  source memory address
 ** \return    none
 ***************************************************************************************/
-void GOxcp_readData(void *data, uint8_t elements, void *location);
+void GO_xcp_read_data(void *data, uint8_t elements, void *location);
 
 /**************************************************************************************
 ** \brief     Write data from the XCP data buffer to a memory location.
@@ -145,20 +145,20 @@ void GOxcp_readData(void *data, uint8_t elements, void *location);
 ** \param     location  destination memory address
 ** \return    none
 ***************************************************************************************/
-void GOxcp_writeData(void *data, uint8_t elements, void *location);
+void GO_xcp_write_data(void *data, uint8_t elements, void *location);
 
 /**************************************************************************************
 ** \brief     Stop the active XCP connection and release resources.
 ** \return    none
 ***************************************************************************************/
-void GOxcp_stopConnection(void);
+void GO_xcp_stop_connection(void);
 
 /**************************************************************************************
 ** \brief     Handle a user-defined XCP command (transport-specific behaviour).
 ** \param     dataReceived  pointer to the received XCP command bytes
 ** \return    0 on success, -1 on unrecognised command
 ***************************************************************************************/
-uint8_t GOxcp_userCmd(uint8_t *dataReceived);
+uint8_t GO_xcp_user_cmd(uint8_t *dataReceived);
 
 /****************************************************************************************
  * Function prototypes — STM32H5 (GOCONTROLL_IOT) specific
@@ -174,7 +174,7 @@ uint8_t GOxcp_userCmd(uint8_t *dataReceived);
 ** \param     xcp_receive_id_extended 1 = 29-bit extended ID, 0 = 11-bit standard
 ** \return    none
 ***************************************************************************************/
-void GOxcp_initCan(FDCAN_HandleTypeDef *can_channel,
+void GO_xcp_init_can(FDCAN_HandleTypeDef *can_channel,
 				   uint32_t xcp_send_id, uint32_t xcp_receive_id,
 				   uint8_t xcp_send_id_extended,
 				   uint8_t xcp_receive_id_extended);
@@ -184,7 +184,7 @@ void GOxcp_initCan(FDCAN_HandleTypeDef *can_channel,
 ** \param     args  unused task argument
 ** \return    none (infinite loop)
 ***************************************************************************************/
-void GOxcp_threadCan(void *args);
+void GO_xcp_thread_can(void *args);
 
 /****************************************************************************************
  * Function prototypes — Linux specific
@@ -196,21 +196,21 @@ void GOxcp_threadCan(void *args);
 ** \param     aArgument  unused
 ** \return    none
 ***************************************************************************************/
-void *GOxcp_initializeTcp(void *aArgument);
+void *GO_xcp_initialize_tcp(void *aArgument);
 
 /**************************************************************************************
 ** \brief     Start the XCP slave over UDP/IP (blocking — runs in a thread).
 ** \param     aArgument  unused
 ** \return    none
 ***************************************************************************************/
-void *GOxcp_initializeUdp(void *aArgument);
+void *GO_xcp_initialize_udp(void *aArgument);
 
 /**************************************************************************************
 ** \brief     Start the XCP slave over CAN (blocking — runs in a thread).
 ** \param     aArgument  pointer to _XCP_CAN_Args
 ** \return    none
 ***************************************************************************************/
-void *GOxcp_initializeCan(void *aArgument);
+void *GO_xcp_initialize_can(void *aArgument);
 
 #endif /* GOCONTROLL_IOT */
 

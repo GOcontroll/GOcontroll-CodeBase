@@ -119,7 +119,7 @@ struct sllin {
 **            STM32:  TODO — configure UART peripheral for LIN break detection.
 ** \return    0 on success, -1 on failure
 ***************************************************************************************/
-int GOcommunicationlin_initializeInterface(void);
+int GO_communication_lin_initialize_interface(void);
 
 /**************************************************************************************
 ** \brief     Close the LIN serial interface and restore terminal settings.
@@ -127,7 +127,7 @@ int GOcommunicationlin_initializeInterface(void);
 **            STM32:  TODO — disable UART peripheral.
 ** \return    0 on success, -1 on failure
 ***************************************************************************************/
-int GOcommunicationlin_deInitializeInterface(void);
+int GO_communication_lin_de_initialize_interface(void);
 
 /**************************************************************************************
 ** \brief     Round-robin LIN message scheduler.
@@ -137,7 +137,7 @@ int GOcommunicationlin_deInitializeInterface(void);
 ** \param     action  1 = register, 2 = query
 ** \return    1 if the message is allowed to transmit, 0 otherwise
 ***************************************************************************************/
-uint8_t GOcommunicationlin_messageScheduler(uint8_t id, uint8_t action);
+uint8_t GO_communication_lin_message_scheduler(uint8_t id, uint8_t action);
 
 /**************************************************************************************
 ** \brief     Send a LIN header and read the slave response.
@@ -147,7 +147,7 @@ uint8_t GOcommunicationlin_messageScheduler(uint8_t id, uint8_t action);
 ** \param     checksum    1 = classic checksum, 2 = enhanced checksum (ID included)
 ** \return    0 on success, -1 on failure
 ***************************************************************************************/
-int GOcommunicationlin_masterRetrieveData(uint8_t id, uint8_t dataLength,
+int GO_communication_lin_master_retrieve_data(uint8_t id, uint8_t dataLength,
                                           uint8_t data[], uint8_t checksum);
 
 /**************************************************************************************
@@ -158,7 +158,7 @@ int GOcommunicationlin_masterRetrieveData(uint8_t id, uint8_t dataLength,
 ** \param     checksum    1 = classic checksum, 2 = enhanced checksum (ID included)
 ** \return    0 on success, -1 on failure
 ***************************************************************************************/
-int GOcommunicationlin_masterSendData(uint8_t id, uint8_t dataLength,
+int GO_communication_lin_master_send_data(uint8_t id, uint8_t dataLength,
                                       uint8_t data[], uint8_t checksum);
 
 #endif /* GO_COMMUNICATION_LIN_H */

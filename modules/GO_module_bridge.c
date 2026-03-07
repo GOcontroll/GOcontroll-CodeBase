@@ -62,7 +62,7 @@ extern _hardwareConfig hardwareConfig;
 
 /****************************************************************************************/
 
-int GOmodulebridge_configuration(_bridgeModule* bridgeModule) {
+int GO_module_bridge_configuration(_bridgeModule* bridgeModule) {
 	// module not registered
 	if (hardwareConfig.moduleOccupancy[bridgeModule->moduleSlot][0] == 0) {
 		return -ENODEV;
@@ -91,7 +91,7 @@ int GOmodulebridge_configuration(_bridgeModule* bridgeModule) {
 
 /****************************************************************************************/
 
-int GOmodulebridge_sendValues(_bridgeModule* bridgeModule) {
+int GO_module_bridge_send_values(_bridgeModule* bridgeModule) {
 	// module not registered
 	if (hardwareConfig.moduleOccupancy[bridgeModule->moduleSlot][0] == 0) {
 		return -ENODEV;
@@ -129,7 +129,7 @@ int GOmodulebridge_sendValues(_bridgeModule* bridgeModule) {
 
 /****************************************************************************************/
 
-int GOmodulebridge_setModuleSlot(_bridgeModule* bridgeModule,
+int GO_module_bridge_set_module_slot(_bridgeModule* bridgeModule,
 							   uint8_t moduleSlot) {
 	if (moduleSlot < hardwareConfig.moduleNumber) {
 		if (!memcmp(hardwareConfig.moduleOccupancy[moduleSlot],
@@ -150,7 +150,7 @@ int GOmodulebridge_setModuleSlot(_bridgeModule* bridgeModule,
 
 /****************************************************************************************/
 
-int GOmodulebridge_configureChannel(_bridgeModule* bridgeModule, uint8_t channel,
+int GO_module_bridge_configure_channel(_bridgeModule* bridgeModule, uint8_t channel,
 								  uint8_t func, uint8_t freq) {
 	if (channel > 1) {
 		err("Configured channel is out of range for bridge module in slot %d, "

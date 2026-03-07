@@ -58,16 +58,16 @@
  * TODO: Implement LIN communication for STM32H5.
  *
  * Suggested approach:
- *   - GOcommunicationlin_initializeInterface: configure UART peripheral in LIN mode
+ *   - GO_communication_lin_initialize_interface: configure UART peripheral in LIN mode
  *     using HAL_LIN_Init(), set baud rate to 19200, enable break detection.
- *   - GOcommunicationlin_deInitializeInterface: call HAL_UART_DeInit() and disable
+ *   - GO_communication_lin_de_initialize_interface: call HAL_UART_DeInit() and disable
  *     the peripheral clock.
- *   - GOcommunicationlin_messageScheduler: port the existing round-robin scheduler
+ *   - GO_communication_lin_message_scheduler: port the existing round-robin scheduler
  *     directly — logic is platform-independent.
- *   - GOcommunicationlin_masterRetrieveData: use HAL_LIN_SendBreak() to generate the
+ *   - GO_communication_lin_master_retrieve_data: use HAL_LIN_SendBreak() to generate the
  *     LIN break field, then transmit sync + PID via HAL_UART_Transmit(), and
  *     receive the slave response with HAL_UART_Receive() with a suitable timeout.
- *   - GOcommunicationlin_masterSendData: same break/sync/PID sequence followed by
+ *   - GO_communication_lin_master_send_data: same break/sync/PID sequence followed by
  *     HAL_UART_Transmit() for data bytes and checksum.
  *
  * Required HAL includes (add as needed):
@@ -75,12 +75,12 @@
  *   #include "usart.h"
  *
  * Functions to implement:
- *   int     GOcommunicationlin_initializeInterface(void)
- *   int     GOcommunicationlin_deInitializeInterface(void)
- *   uint8_t GOcommunicationlin_messageScheduler(uint8_t id, uint8_t action)
- *   int     GOcommunicationlin_masterRetrieveData(uint8_t id, uint8_t dataLength,
+ *   int     GO_communication_lin_initialize_interface(void)
+ *   int     GO_communication_lin_de_initialize_interface(void)
+ *   uint8_t GO_communication_lin_message_scheduler(uint8_t id, uint8_t action)
+ *   int     GO_communication_lin_master_retrieve_data(uint8_t id, uint8_t dataLength,
  *               uint8_t data[], uint8_t checksum)
- *   int     GOcommunicationlin_masterSendData(uint8_t id, uint8_t dataLength,
+ *   int     GO_communication_lin_master_send_data(uint8_t id, uint8_t dataLength,
  *               uint8_t data[], uint8_t checksum)
  */
 
@@ -147,7 +147,7 @@ static int tty_set_mode(struct sllin_tty *tty, int baudrate);
 ** \return    0 on success, -1 on failure
 ***************************************************************************************/
 
-int GOcommunicationlin_initializeInterface(void)
+int GO_communication_lin_initialize_interface(void)
 {
 	static uint8_t firsttime = 1;
 
@@ -176,7 +176,7 @@ int GOcommunicationlin_initializeInterface(void)
 ** \return    0 on success, -1 on failure
 ***************************************************************************************/
 
-int GOcommunicationlin_deInitializeInterface(void)
+int GO_communication_lin_de_initialize_interface(void)
 {
 	ioctl(sl->tty->tty_fd, TCSETS2, sl->tty->tattr_orig);
 	close(sl->tty->tty_fd);
@@ -192,7 +192,7 @@ int GOcommunicationlin_deInitializeInterface(void)
 ** \return    1 if the message is allowed to transmit, 0 otherwise
 ***************************************************************************************/
 
-uint8_t GOcommunicationlin_messageScheduler(uint8_t id, uint8_t action)
+uint8_t GO_communication_lin_message_scheduler(uint8_t id, uint8_t action)
 {
 	static uint8_t storedIds    = 0;
 	static uint8_t storedId[10] = {0};
@@ -221,7 +221,7 @@ uint8_t GOcommunicationlin_messageScheduler(uint8_t id, uint8_t action)
 ** \return    0 on success, -1 on failure
 ***************************************************************************************/
 
-int GOcommunicationlin_masterRetrieveData(uint8_t id, uint8_t dataLength,
+int GO_communication_lin_master_retrieve_data(uint8_t id, uint8_t dataLength,
                                           uint8_t data[], uint8_t checksum)
 {
 	uint8_t buff[6];
@@ -284,7 +284,7 @@ int GOcommunicationlin_masterRetrieveData(uint8_t id, uint8_t dataLength,
 ** \return    0 on success, -1 on failure
 ***************************************************************************************/
 
-int GOcommunicationlin_masterSendData(uint8_t id, uint8_t dataLength,
+int GO_communication_lin_master_send_data(uint8_t id, uint8_t dataLength,
                                       uint8_t data[], uint8_t checksum)
 {
 	uint8_t dataBytes = 0;

@@ -82,7 +82,7 @@ typedef struct {
 **                          data for the module configuration.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmodulebridge_configuration(_bridgeModule* bridgeModule);
+int GO_module_bridge_configuration(_bridgeModule* bridgeModule);
 
 /**************************************************************************************
 ** \brief     Sends the output values to the bridge module and reads back feedback.
@@ -90,7 +90,7 @@ int GOmodulebridge_configuration(_bridgeModule* bridgeModule);
 **                          data for the module configuration.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmodulebridge_sendValues(_bridgeModule* bridgeModule);
+int GO_module_bridge_send_values(_bridgeModule* bridgeModule);
 
 /**************************************************************************************
 ** \brief     Sets the module slot for a bridge module and validates the slot assignment.
@@ -99,7 +99,7 @@ int GOmodulebridge_sendValues(_bridgeModule* bridgeModule);
 ** \param     moduleSlot    The slot index (0-based) that the module is inserted in.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmodulebridge_setModuleSlot(_bridgeModule* bridgeModule, uint8_t moduleSlot);
+int GO_module_bridge_set_module_slot(_bridgeModule* bridgeModule, uint8_t moduleSlot);
 
 /**************************************************************************************
 ** \brief     Configures an output channel of a bridge module with function and frequency.
@@ -110,7 +110,7 @@ int GOmodulebridge_setModuleSlot(_bridgeModule* bridgeModule, uint8_t moduleSlot
 ** \param     freq          The PWM frequency for the bridge channel (use BRIDGEFREQ* macros).
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GOmodulebridge_configureChannel(_bridgeModule* bridgeModule, uint8_t channel,
+int GO_module_bridge_configure_channel(_bridgeModule* bridgeModule, uint8_t channel,
 								  uint8_t func, uint8_t freq);
 
 #endif /* GO_MODULE_BRIDGE_H */

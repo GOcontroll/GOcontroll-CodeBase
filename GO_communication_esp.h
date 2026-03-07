@@ -163,7 +163,7 @@ typedef struct __attribute__((packed))
 
 /*==============================================================================================
 ** MQTT subscribe — per-block data struct.
-** Allocate one statically per Subscribe block; pass a pointer to GOcommunicationesp_mqttSubRegister.
+** Allocate one statically per Subscribe block; pass a pointer to GO_communication_esp_mqtt_sub_register.
 ==============================================================================================*/
 typedef struct
 {
@@ -185,7 +185,7 @@ typedef struct
 ** \param     huart  Pointer to the HAL UART handle to use for ESP communication.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_init(UART_HandleTypeDef *huart);
+void GO_communication_esp_init(UART_HandleTypeDef *huart);
 
 /**************************************************************************************
 ** \brief     Feed one received byte into the RX state machine. Call this from
@@ -194,7 +194,7 @@ void GOcommunicationesp_init(UART_HandleTypeDef *huart);
 ** \param     huart  Pointer to the HAL UART handle that triggered the callback.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_uartRxCallback(UART_HandleTypeDef *huart);
+void GO_communication_esp_uart_rx_callback(UART_HandleTypeDef *huart);
 
 /* --- STM32H → ESP frames --- */
 
@@ -203,7 +203,7 @@ void GOcommunicationesp_uartRxCallback(UART_HandleTypeDef *huart);
 **            ESPIF_MSG_STATIC_INFO frame to the ESP. Call once after startup.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_sendStaticInfo(void);
+void GO_communication_esp_send_static_info(void);
 
 /**************************************************************************************
 ** \brief     Gather cyclic telemetry (voltages, temperature, CAN bitrates, IMU,
@@ -211,7 +211,7 @@ void GOcommunicationesp_sendStaticInfo(void);
 **            Call periodically, typically every 200 ms.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_sendCyclicInfo(void);
+void GO_communication_esp_send_cyclic_info(void);
 
 /**************************************************************************************
 ** \brief     Apply a time-sync payload received from the ESP to the STM32 RTC.
@@ -225,7 +225,7 @@ void GOcommunicationesp_sendCyclicInfo(void);
 ** \param     second  Second of minute (0–59).
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_onTimeSync(uint16_t year, uint8_t month, uint8_t day,
+void GO_communication_esp_on_time_sync(uint16_t year, uint8_t month, uint8_t day,
                                    uint8_t hour, uint8_t minute, uint8_t second);
 
 /**************************************************************************************
@@ -234,14 +234,14 @@ void GOcommunicationesp_onTimeSync(uint16_t year, uint8_t month, uint8_t day,
 ** \param     sim_pin  Null-terminated SIM PIN string, or NULL / "" when no PIN required.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_setModemConfig(const char *apn, const char *sim_pin);
+void GO_communication_esp_set_modem_config(const char *apn, const char *sim_pin);
 
 /**************************************************************************************
 ** \brief     Enable or disable the LTE modem on the ESP.
 ** \param     enable  true to enable, false to disable.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_enableLte(bool enable);
+void GO_communication_esp_enable_lte(bool enable);
 
 /**************************************************************************************
 ** \brief     Send MQTT broker credentials to the ESP. Changes take effect on the
@@ -254,7 +254,7 @@ void GOcommunicationesp_enableLte(bool enable);
 ** \param     keep_alive  Keep-alive interval in seconds.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_setMqttConfig(const char *url, uint16_t port,
+void GO_communication_esp_set_mqtt_config(const char *url, uint16_t port,
                                       const char *user, const char *pass,
                                       const char *client_id, uint16_t keep_alive);
 
@@ -263,7 +263,7 @@ void GOcommunicationesp_setMqttConfig(const char *url, uint16_t port,
 ** \param     enable  true to enable, false to disable.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_enableMqtt(bool enable);
+void GO_communication_esp_enable_mqtt(bool enable);
 
 /**************************************************************************************
 ** \brief     Request the ESP to publish an MQTT message. topic must be
@@ -275,7 +275,7 @@ void GOcommunicationesp_enableMqtt(bool enable);
 ** \param     retain  1 = broker retains the message for new subscribers, 0 = no retain.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_mqttPublish(const char *topic, const uint8_t *payload,
+void GO_communication_esp_mqtt_publish(const char *topic, const uint8_t *payload,
                                     uint16_t len, uint8_t qos, uint8_t retain);
 
 /**************************************************************************************
@@ -283,7 +283,7 @@ void GOcommunicationesp_mqttPublish(const char *topic, const uint8_t *payload,
 ** \param     enable  true to enable, false to disable.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_enableGps(bool enable);
+void GO_communication_esp_enable_gps(bool enable);
 
 /**************************************************************************************
 ** \brief     Subscribe to an MQTT topic on the ESP.
@@ -291,25 +291,25 @@ void GOcommunicationesp_enableGps(bool enable);
 ** \param     qos    QoS level (0, 1 or 2).
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_mqttSubscribe(const char *topic, uint8_t qos);
+void GO_communication_esp_mqtt_subscribe(const char *topic, uint8_t qos);
 
 /**************************************************************************************
 ** \brief     Register a subscription data block with the driver. The driver will
 **            fill sub->payload, sub->length and sub->new_flag whenever a message
 **            arrives on sub->topic. Call once at model init before
-**            GOcommunicationesp_mqttSubscribe. The pointer must remain valid for
+**            GO_communication_esp_mqtt_subscribe. The pointer must remain valid for
 **            the lifetime of the program.
 ** \param     sub  Pointer to the subscription data struct to register.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_mqttSubRegister(EspInterface_MqttSubData_t *sub);
+void GO_communication_esp_mqtt_sub_register(EspInterface_MqttSubData_t *sub);
 
 /**************************************************************************************
 ** \brief     Unsubscribe from an MQTT topic on the ESP.
 ** \param     topic  Null-terminated topic string (max 64 chars).
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_mqttUnsubscribe(const char *topic);
+void GO_communication_esp_mqtt_unsubscribe(const char *topic);
 
 /*==============================================================================================
 ** Weak callbacks — override in application code to receive events from the ESP.
@@ -320,7 +320,7 @@ void GOcommunicationesp_mqttUnsubscribe(const char *topic);
 ** \param     status  ESPIF_MQTT_STATUS_DISCONNECTED / _CONNECTING / _CONNECTED.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_onMqttStatus(uint8_t status);
+void GO_communication_esp_on_mqtt_status(uint8_t status);
 
 /**************************************************************************************
 ** \brief     Called when the ESP sends a GPS fix. gps is valid only for the
@@ -328,7 +328,7 @@ void GOcommunicationesp_onMqttStatus(uint8_t status);
 ** \param     gps  Pointer to the GPS data struct.
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_onGpsData(const EspInterface_GpsData_t *gps);
+void GO_communication_esp_on_gps_data(const EspInterface_GpsData_t *gps);
 
 /**************************************************************************************
 ** \brief     Called when the ESP reports a modem/LTE state change.
@@ -336,7 +336,7 @@ void GOcommunicationesp_onGpsData(const EspInterface_GpsData_t *gps);
 ** \param     ip     Null-terminated IP string (empty string when not connected).
 ** \return    none
 ***************************************************************************************/
-void GOcommunicationesp_onModemStatus(uint8_t state, const char *ip);
+void GO_communication_esp_on_modem_status(uint8_t state, const char *ip);
 
 #endif /* GOCONTROLL_IOT */
 
