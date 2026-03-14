@@ -406,6 +406,7 @@ static void   expired(union sigval timer_data);
 /****************************************************************************************/
 
 static void expired(union sigval timer_data) {
+	(void)timer_data;
 	char data[3];
 	err("Timer expired, killing XCP\n");
 	data[0] = 0xdd; /* START_STOP_DAQ_LIST */
@@ -430,6 +431,7 @@ static void expired(union sigval timer_data) {
 ** \return    none
 ***************************************************************************************/
 void *GO_xcp_initialize_tcp(void *aArgument) {
+	(void)aArgument;
 	xcpTransmissionBus = XCPETH;
 	struct sockaddr_in XcpSocketAddr, XCPclientAddr;
 	socklen_t	   XCPclientAddrLen;
@@ -515,6 +517,7 @@ void *GO_xcp_initialize_tcp(void *aArgument) {
 ** \return    none
 ***************************************************************************************/
 void *GO_xcp_initialize_udp(void *aArgument) {
+	(void)aArgument;
 	xcpTransmissionBus = XCPETH;
 	struct sockaddr_in XcpSocketAddr;
 	int		   result;

@@ -225,7 +225,7 @@ no_msg:
 	pthread_mutex_unlock(gps_data_lock);
 }
 
-static void printarr(char *arr, ssize_t count) {
+static void __attribute__((unused)) printarr(char *arr, ssize_t count) {
 	printf("%s", arr);
 	printf("[");
 	for (int i = 0; i < count; i++) {

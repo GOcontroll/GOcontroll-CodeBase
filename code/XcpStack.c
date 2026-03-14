@@ -276,6 +276,7 @@ void XcpDynamicConfigurator(uint8_t checksum, uint8_t ctoLength,
 ****************************************************************************************/
 void XcpCommunicationHandling(uint8_t* dataReceived, uint32_t receivedLength,
 							  uint8_t* dataToSend) {
+	(void)receivedLength;
 	switch (dataReceived[0])  // Command packet code
 	{
 		/* XCP Master commands */
