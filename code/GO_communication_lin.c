@@ -121,7 +121,7 @@ static struct sllin sllin_data = {
 
 static struct sllin *sl;
 
-static int lin_descriptor = 0;
+static int lin_descriptor __attribute__((unused)) = 0;
 
 /****************************************************************************************
  * Local data definitions
@@ -262,7 +262,7 @@ int GO_communication_lin_master_retrieve_data(uint8_t id, uint8_t dataLength,
 	read(sl->tty->tty_fd, &buff[1], 1); /* Sync byte   */
 	read(sl->tty->tty_fd, &buff[2], 1); /* Identifier  */
 
-	uint8_t calculatedChecksum = 0;
+	uint16_t calculatedChecksum = 0;
 	if (checksum == 2)
 		calculatedChecksum = buff[2];
 
