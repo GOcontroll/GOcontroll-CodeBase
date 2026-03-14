@@ -61,7 +61,6 @@
 
 #elif defined(GOCONTROLL_LINUX)
 
-#define _DEFAULT_SOURCE		/* For usleep() */
 #include <fcntl.h>
 #include <linux/spi/spidev.h>
 #include <linux/types.h>
