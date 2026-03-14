@@ -29,6 +29,9 @@
 ***************************************************************************************/
 
 #include "GO_fault.h"
+
+#ifdef GOCONTROLL_IOT
+
 #include "SEGGER_RTT.h"
 
 /****************************************************************************************
@@ -51,3 +54,5 @@ void vApplicationMallocFailedHook(void)
 	SEGGER_RTT_printf(0, "[FAULT] Malloc failed\n");
 	while (1) {}
 }
+
+#endif /* GOCONTROLL_IOT */

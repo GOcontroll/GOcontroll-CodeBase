@@ -62,7 +62,7 @@
 /****************************************************************************************
  * Data declarations — Linux specific
  ****************************************************************************************/
-#ifndef GOCONTROLL_IOT
+#ifdef GOCONTROLL_LINUX
 
 #include <asm/termbits.h>
 
@@ -92,7 +92,7 @@ struct sllin {
 /****************************************************************************************
  * Data declarations — STM32H5 (GOCONTROLL_IOT) specific
  ****************************************************************************************/
-#else
+#elif defined(GOCONTROLL_IOT)
 
 /*
  * TODO: add STM32H5 LIN data types here.
@@ -107,7 +107,7 @@ struct sllin {
  *   #include "usart.h"
  */
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_LINUX / GOCONTROLL_IOT */
 
 /****************************************************************************************
  * Function prototypes — platform-independent API

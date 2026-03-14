@@ -109,6 +109,7 @@ void GO_communication_esp_on_gps_data(const EspInterface_GpsData_t *gps) {
 
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -86,7 +86,7 @@ typedef struct {
  * TODO: add STM32H5 board-level function declarations here.
  */
 
-#else /* GOCONTROLL_LINUX */
+#elif defined(GOCONTROLL_LINUX)
 
 /**************************************************************************************
 ** \brief     Register SIGTERM/SIGINT handlers and store the Simulink terminate callback.

@@ -441,7 +441,7 @@ void GO_board_controller_info_get_data(GOcontrollControllerInfo_t *out) {
  * Linux (GOCONTROLL_LINUX) implementations
  ****************************************************************************************
  ****************************************************************************************/
-#else
+#elif defined(GOCONTROLL_LINUX)
 
 /* ---- Board ---- */
 #include <dirent.h>
@@ -525,7 +525,7 @@ void GO_board_exit_program(void *Terminate) {
 		TerminateFunction = Terminate;
 		return;
 	}
-	XcpStopConnection();
+	GO_xcp_stop_connection();
 	TerminateFunction();
 	exit(0);
 }
@@ -1337,6 +1337,6 @@ void GO_board_controller_info_get_data(GOcontrollControllerInfo_t *out) {
 	pthread_mutex_unlock(&s_info_data_lock);
 }
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_IOT / GOCONTROLL_LINUX */
 
 /* end of GO_board.c */

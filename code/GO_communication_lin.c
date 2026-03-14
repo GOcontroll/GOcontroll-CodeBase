@@ -89,7 +89,7 @@
  * Linux specific implementations
  ****************************************************************************************
  ****************************************************************************************/
-#else
+#elif defined(GOCONTROLL_LINUX)
 
 #include <fcntl.h>
 #include <getopt.h>
@@ -414,6 +414,6 @@ static int tty_set_mode(struct sllin_tty *tty, int baudrate)
 	return 0;
 }
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_IOT / GOCONTROLL_LINUX */
 
 /* end of GO_communication_lin.c */

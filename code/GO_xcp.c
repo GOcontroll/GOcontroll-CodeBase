@@ -54,7 +54,7 @@
 
 #include "Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h"
 #include "cmsis_os2.h"
-#else /* Linux */
+#elif defined(GOCONTROLL_LINUX)
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -79,7 +79,7 @@
 
 #include "SYS_config.h"
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_IOT / GOCONTROLL_LINUX */
 
 /****************************************************************************************
  * Macro definitions
@@ -334,7 +334,7 @@ uint8_t GO_xcp_user_cmd(uint8_t *dataReceived) { return 0; }
  * Linux specific implementations
  ****************************************************************************************
  ****************************************************************************************/
-#else
+#elif defined(GOCONTROLL_LINUX)
 
 /****************************************************************************************
  * Type definitions
@@ -806,6 +806,6 @@ uint8_t GO_xcp_user_cmd(uint8_t *dataReceived) {
 	}
 }
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_IOT / GOCONTROLL_LINUX */
 
 /* end of GO_xcp.c */

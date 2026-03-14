@@ -59,7 +59,7 @@
 #include "stm32h5xx_hal.h"
 #include "SEGGER_RTT.h"
 
-#else /* Linux */
+#elif defined(GOCONTROLL_LINUX)
 
 #define _DEFAULT_SOURCE		/* For usleep() */
 #include <fcntl.h>
@@ -69,7 +69,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_IOT / GOCONTROLL_LINUX */
 
 /****************************************************************************************
  * Macro definitions
@@ -85,7 +85,7 @@ _hardwareConfig hardwareConfig;
 /****************************************************************************************
  * Linux-specific internal helpers
  ****************************************************************************************/
-#ifndef GOCONTROLL_IOT
+#ifdef GOCONTROLL_LINUX
 
 typedef struct {
 	char *channel;
@@ -147,7 +147,7 @@ static int GO_communication_modules_module_reset(uint8_t moduleSlot) {
 	return moduleReset[moduleSlot];
 }
 
-#endif /* !GOCONTROLL_IOT */
+#endif /* GOCONTROLL_LINUX */
 
 /****************************************************************************************
  ****************************************************************************************
@@ -284,7 +284,7 @@ void GO_communication_modules_delay_1ms(uint32_t times) {
 			while ((DWT->CYCCNT - t0) < clk_per_ms);
 		}
 	}
-#else
+#elif defined(GOCONTROLL_LINUX)
 	usleep(times * 1000);
 #endif
 }
@@ -305,7 +305,7 @@ int8_t GO_communication_modules_reset_state_module(uint8_t module, uint8_t state
 		HAL_GPIO_WritePin(MOD2_RESET_GPIO_Port, MOD2_RESET_Pin, !state);
 	}
 	return 0;
-#else
+#elif defined(GOCONTROLL_LINUX)
 	static const char s_values_str[] = "01";
 
 	if (1 != write(GO_communication_modules_module_reset(module),
@@ -356,7 +356,7 @@ int GO_communication_modules_escape_from_bootloader(uint8_t module,
 	}
 
 	if (dataRx[1] <= BOOTMESSAGELENGTHCHECK) {
-#else
+#elif defined(GOCONTROLL_LINUX)
 	struct spi_ioc_transfer tr = {
 		.tx_buf		= (long int)&dataTx[0],
 		.rx_buf		= (long int)&dataRx[0],
@@ -427,7 +427,7 @@ int GO_communication_modules_send_spi(uint8_t command, uint8_t dataLength,
 	} else if (module == 1) {
 		HAL_GPIO_WritePin(SPI_MOD2_CS_GPIO_Port, SPI_MOD2_CS_Pin, GPIO_PIN_SET);
 	}
-#else
+#elif defined(GOCONTROLL_LINUX)
 	usleep((uint32_t)delay);
 	write(GO_communication_modules_spi_device(module), &dataTx[0],
 		  dataLength + MESSAGEOVERLENGTH);
@@ -484,7 +484,7 @@ int GO_communication_modules_send_receive_spi(uint8_t command, uint8_t dataLengt
 	} else if (module == 1) {
 		HAL_GPIO_WritePin(SPI_MOD2_CS_GPIO_Port, SPI_MOD2_CS_Pin, GPIO_PIN_SET);
 	}
-#else
+#elif defined(GOCONTROLL_LINUX)
 	/* Reset essential values to erase any stale message */
 	dataRx[0] = 0;
 	dataRx[dataLength - 1] = 0;

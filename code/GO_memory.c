@@ -562,7 +562,7 @@ void GO_memory_diagnostic_delete_single(uint32_t spn, uint8_t fmi, uint8_t oc) {
  * Linux specific implementations
  ****************************************************************************************
  ****************************************************************************************/
-#else
+#elif defined(GOCONTROLL_LINUX)
 
 #include <dirent.h>
 #include <errno.h>
@@ -856,6 +856,6 @@ static int remove_directory(const char *path) {
 	return r;
 }
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_IOT / GOCONTROLL_LINUX */
 
 /* end of GO_memory.c */

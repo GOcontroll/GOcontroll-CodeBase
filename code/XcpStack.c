@@ -1028,7 +1028,7 @@ static void XcpAllocDaq(uint8_t* dataReceived, uint8_t* dataToSend) {
 
 		daq = malloc(*(uint16_t*)&dataReceived[2] * sizeof(_daq));
 		if (daq == NULL) {
-			dbg(stderr, " could not allocate daq\n");
+			dbg(" could not allocate daq\n");
 
 			XcpNegativeResponse(dataToSend, XCPERRORMEMORYOVERFLOW);
 			return;

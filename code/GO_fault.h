@@ -31,10 +31,14 @@
 #ifndef GO_FAULT_H
 #define GO_FAULT_H
 
+#ifdef GOCONTROLL_IOT
+
 #include "FreeRTOS.h"
 #include "task.h"
 
 void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName);
 void vApplicationMallocFailedHook(void);
+
+#endif /* GOCONTROLL_IOT */
 
 #endif /* GO_FAULT_H */

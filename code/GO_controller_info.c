@@ -97,14 +97,14 @@ void GO_controller_info_get_rtc_time(_rtcTime *t) {
 	t->second = sTime.Seconds;
 }
 
-#else
+#elif defined(GOCONTROLL_LINUX)
 
 void GO_controller_info_get_rtc_time(_rtcTime *t) {
 	t->year = 0; t->month = 0; t->day = 0;
 	t->hour = 0; t->minute = 0; t->second = 0;
 }
 
-#endif /* GOCONTROLL_IOT (RTC) */
+#endif /* GOCONTROLL_IOT / GOCONTROLL_LINUX (RTC) */
 
 #ifdef GOCONTROLL_IOT
 
@@ -150,7 +150,7 @@ uint8_t GO_controller_info_get_cpu_load(void) {
 /****************************************************************************************
  * Linux implementation — not available on Linux; return 0
  ****************************************************************************************/
-#else
+#elif defined(GOCONTROLL_LINUX)
 
 /**************************************************************************************
 ** \brief     Return the minimum free stack ever recorded for the model step task.
@@ -176,4 +176,4 @@ uint32_t GO_controller_info_get_free_heap(void)   { return 0; }
 ***************************************************************************************/
 uint8_t GO_controller_info_get_cpu_load(void)     { return 0; }
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_IOT / GOCONTROLL_LINUX */

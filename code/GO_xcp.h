@@ -73,7 +73,7 @@
 #include "GO_communication_can.h"
 #include "cmsis_os2.h"
 #include "stm32h5xx_hal.h"
-#else
+#elif defined(GOCONTROLL_LINUX)
 #include <stdio.h>
 #endif
 
@@ -108,7 +108,7 @@ typedef struct {
 /****************************************************************************************
  * Type definitions — Linux specific
  ****************************************************************************************/
-#ifndef GOCONTROLL_IOT
+#ifdef GOCONTROLL_LINUX
 
 typedef struct {
 	char     *can_channel;
@@ -116,7 +116,7 @@ typedef struct {
 	uint32_t  xcp_receive_id;
 } _XCP_CAN_Args;
 
-#endif /* !GOCONTROLL_IOT */
+#endif /* GOCONTROLL_LINUX */
 
 /****************************************************************************************
  * Function prototypes — platform-independent
