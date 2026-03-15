@@ -37,6 +37,8 @@
 ****************************************************************************************/
 #ifdef GOCONTROLL_IOT
 
+#include "FreeRTOS.h"
+#include "task.h"
 #include "cmsis_os2.h"
 #include "main.h"
 #include "print.h"
@@ -250,6 +252,66 @@ uint8_t can_get_esp_bitrate(uint8_t channel)
     if (channel == 1u) return s_can1_esp_bitrate;
     if (channel == 2u) return s_can2_esp_bitrate;
     return 0u;
+}
+
+/*==============================================================================================
+** Shared per-bus receive buffer — legacy CAN receive block (dynamic CAN ID).
+==============================================================================================*/
+
+static struct can_rx_slot_t s_rx_buf[2][CAN_RX_BUF_SIZE];
+
+/**************************************************************************************
+** \brief     Push a received frame into the shared per-bus buffer.
+**            Call from the FDCAN FIFO0 RX callback (ISR context).
+***************************************************************************************/
+void GO_communication_can_rx_push(uint8_t canInterface, struct can_frame *frame)
+{
+    if (canInterface > 1u) { return; }
+    for (uint8_t i = 0u; i < CAN_RX_BUF_SIZE; i++) {
+        if (s_rx_buf[canInterface][i].id == frame->id) {
+            memcpy(&s_rx_buf[canInterface][i].frame, frame, sizeof(struct can_frame));
+            s_rx_buf[canInterface][i].new_flag = true;
+            return;
+        }
+    }
+    /* No matching slot registered — frame discarded */
+}
+
+/**************************************************************************************
+** \brief     Retrieve a buffered frame by CAN ID (call from model step, task context).
+***************************************************************************************/
+int GO_communication_can_rx_get(uint8_t canInterface, uint32_t can_id,
+                                 struct can_frame *frame_out, bool *new_flag)
+{
+    if (canInterface > 1u) { return -1; }
+    for (uint8_t i = 0u; i < CAN_RX_BUF_SIZE; i++) {
+        if (s_rx_buf[canInterface][i].id == can_id) {
+            taskENTER_CRITICAL();
+            memcpy(frame_out, &s_rx_buf[canInterface][i].frame, sizeof(struct can_frame));
+            *new_flag = s_rx_buf[canInterface][i].new_flag;
+            s_rx_buf[canInterface][i].new_flag = false;
+            taskEXIT_CRITICAL();
+            return 0;
+        }
+    }
+    return -1;
+}
+
+/**************************************************************************************
+** \brief     Update the CAN ID of an existing buffer slot (dynamic ID change).
+***************************************************************************************/
+int GO_communication_can_rx_update_id(uint8_t canInterface, uint32_t old_id,
+                                       uint32_t new_id)
+{
+    if (canInterface > 1u) { return -1; }
+    for (uint8_t i = 0u; i < CAN_RX_BUF_SIZE; i++) {
+        if (s_rx_buf[canInterface][i].id == old_id) {
+            s_rx_buf[canInterface][i].id       = new_id;
+            s_rx_buf[canInterface][i].new_flag = false;
+            return 0;
+        }
+    }
+    return -1;
 }
 
 #endif /* GOCONTROLL_IOT */

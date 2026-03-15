@@ -145,6 +145,59 @@ void    can_bus_off_recovery(FDCAN_HandleTypeDef *hfdcan, uint32_t ErrorStatusIT
 ***************************************************************************************/
 uint8_t can_get_esp_bitrate(uint8_t channel);
 
+/*==============================================================================================
+** Shared per-bus receive buffer — used by the legacy CAN receive block (dynamic CAN ID).
+** All non-matching frames arrive in FIFO0 via the global filter. The FIFO0 callback
+** calls GO_communication_can_rx_push(); the model step calls GO_communication_can_rx_get().
+==============================================================================================*/
+
+/** Maximum number of CAN IDs buffered per bus (override before including if needed). */
+#ifndef CAN_RX_BUF_SIZE
+#define CAN_RX_BUF_SIZE 10
+#endif
+
+/** One slot in the per-bus receive buffer. */
+struct can_rx_slot_t {
+	uint32_t         id;
+	volatile bool    new_flag;
+	struct can_frame frame;
+};
+
+/**************************************************************************************
+** \brief     Push a received frame into the shared per-bus buffer.
+**            Call from the FDCAN FIFO0 RX callback (ISR context).
+**            Finds the slot whose id matches frame->id and updates it.
+**            Frames for which no slot is registered are silently discarded.
+** \param     canInterface  CAN bus index (0 = FDCAN1, 1 = FDCAN2).
+** \param     frame         Pointer to the received frame.
+** \return    none
+***************************************************************************************/
+void GO_communication_can_rx_push(uint8_t canInterface, struct can_frame *frame);
+
+/**************************************************************************************
+** \brief     Retrieve a buffered frame by CAN ID (call from model step, task context).
+**            Copies the frame into frame_out, writes the new_flag, and clears the slot.
+** \param     canInterface  CAN bus index (0 = FDCAN1, 1 = FDCAN2).
+** \param     can_id        CAN identifier to look up.
+** \param     frame_out     Destination for the copied frame.
+** \param     new_flag      Set to true if a new frame arrived since the last call.
+** \return    0 on success, -1 if the ID is not registered.
+***************************************************************************************/
+int GO_communication_can_rx_get(uint8_t canInterface, uint32_t can_id,
+                                 struct can_frame *frame_out, bool *new_flag);
+
+/**************************************************************************************
+** \brief     Update the CAN ID of an existing buffer slot (dynamic ID change).
+**            Replaces old_id with new_id. If old_id is 0 (uninitialised), the first
+**            empty slot is claimed instead.
+** \param     canInterface  CAN bus index (0 = FDCAN1, 1 = FDCAN2).
+** \param     old_id        Current CAN ID to replace (0 = claim empty slot).
+** \param     new_id        New CAN ID to register.
+** \return    0 on success, -1 if no matching or empty slot was found.
+***************************************************************************************/
+int GO_communication_can_rx_update_id(uint8_t canInterface, uint32_t old_id,
+                                       uint32_t new_id);
+
 #endif /* GOCONTROLL_IOT */
 
 
