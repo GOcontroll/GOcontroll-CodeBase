@@ -240,7 +240,7 @@ int GO_board_status_leds_led_control(uint8_t led, _ledColor color, uint8_t value
  * ===================================== */
 
 extern osThreadId_t model_step_thread;
-extern osThreadId_t xcp_thread;
+osThreadId_t xcp_thread __attribute__((weak)) = NULL;
 extern _hardwareConfig hardwareConfig;
 
 #define ACCELERO_ADDR (0xD6u)
@@ -335,9 +335,9 @@ static void ControllerInfoTask(void *args) {
 			go_board_model_stack_hwm =
 			    (uint32_t)uxTaskGetStackHighWaterMark((TaskHandle_t)model_step_thread)
 			    * sizeof(StackType_t);
-			go_board_xcp_stack_hwm =
-			    (uint32_t)uxTaskGetStackHighWaterMark((TaskHandle_t)xcp_thread)
-			    * sizeof(StackType_t);
+			go_board_xcp_stack_hwm = (xcp_thread != NULL)
+			    ? (uint32_t)uxTaskGetStackHighWaterMark((TaskHandle_t)xcp_thread) * sizeof(StackType_t)
+			    : 0u;
 			go_board_free_heap = (uint32_t)xPortGetFreeHeapSize();
 			//SEGGER_RTT_printf(0, "[Stack] model_step: %u bytes free\n", go_board_model_stack_hwm);
 			//SEGGER_RTT_printf(0, "[Stack] xcp_thread: %u bytes free\n", go_board_xcp_stack_hwm);
