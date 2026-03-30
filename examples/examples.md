@@ -35,6 +35,23 @@ analog mV resolution with a 3.3 kΩ pull-up and 3.3 kΩ pull-down resistor.
 Demonstrates module type/slot assignment, per-channel configuration, sending the
 configuration to the hardware, and polling values in the application loop.
 
+### `input_module_6ch`
+Reads all 6 channels of a 6-channel input module on slot 1 and prints the measured
+voltages in millivolts once per second. Demonstrates the 6-channel-specific
+configuration: voltage range selection (5 V / 12 V / 24 V), per-channel analogue
+filter depth (ADC averaging), and the three independent 5 V sensor supply outputs.
+All channels are configured for analogue mV measurement with a 24 V range, 10 kΩ
+pull-up and 3.3 kΩ pull-down. Sensor supply 1 is switched on.
+
+### `output_module_6ch`
+Drives a 6-channel output module on slot 2 using two output functions simultaneously.
+CH1–CH4 are configured as high-side boolean outputs and cycle on one at a time
+(500 ms each). CH5–CH6 are configured as high-side PWM and the duty cycle ramps
+continuously from 0 to 100 % and back, at a PWM frequency of 1 kHz. Demonstrates
+per-channel current limits, PWM frequency configuration (`GO_module_output_configure_frequency`),
+and reading per-channel current feedback and module temperature after each
+`GO_module_output_send_values()` call.
+
 ### `read_supply_voltages`
 Reads the K30 (battery) and K15-A/B/C (ignition-switched) supply voltages and
 prints them in millivolts once per second. Demonstrates starting the background
