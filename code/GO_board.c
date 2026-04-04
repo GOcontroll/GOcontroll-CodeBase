@@ -261,23 +261,23 @@ static void AccInit(void) {
 	uint8_t data;
 
 	/* WHO_AM_I (0x0F) — expected value 0x69 for LSM6DS3 */
-	HAL_I2C_Mem_Read(&hi2c3, ACCELERO_ADDR, 0x0Fu, 1u, &data, 1u, 1000u);
+	HAL_I2C_Mem_Read(&hi2c2, ACCELERO_ADDR, 0x0Fu, 1u, &data, 1u, 1000u);
 
 	/* INT1_CTRL (0x0D): INT1 on gyro data-ready */
 	data = 0x02u;
-	HAL_I2C_Mem_Write(&hi2c3, ACCELERO_ADDR, 0x0Du, 1u, &data, 1u, 1000u);
+	HAL_I2C_Mem_Write(&hi2c2, ACCELERO_ADDR, 0x0Du, 1u, &data, 1u, 1000u);
 
 	/* INT2_CTRL (0x0E): INT2 on accel data-ready */
 	data = 0x01u;
-	HAL_I2C_Mem_Write(&hi2c3, ACCELERO_ADDR, 0x0Eu, 1u, &data, 1u, 1000u);
+	HAL_I2C_Mem_Write(&hi2c2, ACCELERO_ADDR, 0x0Eu, 1u, &data, 1u, 1000u);
 
 	/* CTRL1_XL (0x10): ODR 104 Hz, ±16 g */
 	data = 0x44u;
-	HAL_I2C_Mem_Write(&hi2c3, ACCELERO_ADDR, 0x10u, 1u, &data, 1u, 1000u);
+	HAL_I2C_Mem_Write(&hi2c2, ACCELERO_ADDR, 0x10u, 1u, &data, 1u, 1000u);
 
 	/* CTRL2_G (0x11): ODR 104 Hz, 250 dps */
 	data = 0x40u;
-	HAL_I2C_Mem_Write(&hi2c3, ACCELERO_ADDR, 0x11u, 1u, &data, 1u, 1000u);
+	HAL_I2C_Mem_Write(&hi2c2, ACCELERO_ADDR, 0x11u, 1u, &data, 1u, 1000u);
 }
 
 static void AccProcess(void) {
@@ -286,12 +286,12 @@ static void AccProcess(void) {
 	float          acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z, temp;
 
 	/* Temperature: OUT_TEMP_L / OUT_TEMP_H (0x20-0x21) */
-	HAL_I2C_Mem_Read(&hi2c3, ACCELERO_ADDR, 0x20u, 1u, data, 2u, 500u);
+	HAL_I2C_Mem_Read(&hi2c2, ACCELERO_ADDR, 0x20u, 1u, data, 2u, 500u);
 	result = (int16_t)((uint16_t)data[0] | ((uint16_t)data[1] << 8u));
 	temp = (float)result / 256.0f + 25.0f;
 
 	/* Gyroscope: OUTX_L_G ... OUTZ_H_G (0x22-0x27), 8.75 mdps/LSB */
-	HAL_I2C_Mem_Read(&hi2c3, ACCELERO_ADDR, 0x22u, 1u, data, 6u, 500u);
+	HAL_I2C_Mem_Read(&hi2c2, ACCELERO_ADDR, 0x22u, 1u, data, 6u, 500u);
 	result = (int16_t)((uint16_t)data[0] | ((uint16_t)data[1] << 8u));
 	gyro_x = (float)result * 8.75f;
 	result = (int16_t)((uint16_t)data[2] | ((uint16_t)data[3] << 8u));
@@ -300,7 +300,7 @@ static void AccProcess(void) {
 	gyro_z = (float)result * 8.75f;
 
 	/* Accelerometer: OUTX_L_XL ... OUTZ_H_XL (0x28-0x2D), 0.488 mg/LSB */
-	HAL_I2C_Mem_Read(&hi2c3, ACCELERO_ADDR, 0x28u, 1u, data, 6u, 500u);
+	HAL_I2C_Mem_Read(&hi2c2, ACCELERO_ADDR, 0x28u, 1u, data, 6u, 500u);
 	result = (int16_t)((uint16_t)data[0] | ((uint16_t)data[1] << 8u));
 	acc_x = (float)result * 0.488f;
 	result = (int16_t)((uint16_t)data[2] | ((uint16_t)data[3] << 8u));
@@ -322,7 +322,7 @@ static void AccProcess(void) {
 
 static void ControllerInfoTask(void *args) {
 	(void)args;
-	MX_I2C3_Init();
+	MX_I2C2_Init();
 	AccInit();
 	uint32_t tick = 0u;
 	uint32_t prev_total_time = 0u;
