@@ -223,10 +223,10 @@ int GO_board_status_leds_led_control(uint8_t led, _ledColor color, uint8_t value
 	}
 	switch (color) {
 		case LED_COLOR_RED:
-			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, (uint32_t)value);
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, (uint32_t)value);
 			break;
 		case LED_COLOR_GREEN:
-			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, (uint32_t)value);
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, (uint32_t)value);
 			break;
 		case LED_COLOR_BLUE:
 			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, (uint32_t)value);
