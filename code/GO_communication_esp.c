@@ -402,6 +402,33 @@ SEGGER_RTT_printf(0, "Send serial info\n");
 }
 
 /**************************************************************************************
+** \brief     Gather application configuration and send an ESPIF_MSG_APP_CONFIG frame.
+**            Call once after startup, immediately after send_static_info.
+** \return    none
+***************************************************************************************/
+void GO_communication_esp_send_app_config(void)
+{
+    const _appConfig *cfg = GO_controller_info_get_app_config();
+
+    uint8_t url_len = (uint8_t)strnlen(cfg->distribution_url, 255u);
+
+    uint16_t payload_len = (uint16_t)(sizeof(EspInterface_AppConfig_t) + url_len);
+    uint8_t  payload[sizeof(EspInterface_AppConfig_t) + 256u];
+
+    EspInterface_AppConfig_t *hdr = (EspInterface_AppConfig_t *)payload;
+    memcpy(hdr->app_id, cfg->app_id, 4u);
+    hdr->signing_enabled = cfg->signing_enabled;
+    memcpy(hdr->public_key, cfg->public_key, 32u);
+    hdr->url_len = url_len;
+    if (url_len > 0u) {
+        memcpy(payload + sizeof(EspInterface_AppConfig_t),
+               cfg->distribution_url, url_len);
+    }
+
+    SendFrame(ESPIF_MSG_APP_CONFIG, payload, payload_len);
+}
+
+/**************************************************************************************
 ** \brief     Gather cyclic telemetry (voltages, temperature, CAN bitrates, IMU,
 **            CPU/heap/stack load) and send an ESPIF_MSG_CYCLIC_INFO frame to the ESP.
 **            Call periodically, typically every 200 ms.
