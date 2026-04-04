@@ -34,6 +34,8 @@
 
 #include "GO_controller_info.h"
 #include "GO_board.h"
+#include <stddef.h>
+#include <string.h>
 
 extern _hardwareConfig hardwareConfig;
 
@@ -58,6 +60,37 @@ void GO_controller_info_set_model_version(uint8_t major, uint8_t minor, uint8_t 
 int GO_controller_info_get_model_version(_modelVersion *ver) {
 	*ver = model_version;
 	return 0;
+}
+
+/****************************************************************************************/
+
+static _appConfig app_config = {
+	.app_id           = "GOCO",
+	.signing_enabled  = 0u,
+	.public_key       = {0},
+	.distribution_url = "https://deploy.gocontroll.com",
+};
+
+void GO_controller_info_set_app_config(const char *app_id, uint8_t signing,
+                                        const uint8_t *public_key, const char *url) {
+	if (app_id != NULL) {
+		strncpy(app_config.app_id, app_id, 4u);
+		app_config.app_id[4] = '\0';
+	}
+	app_config.signing_enabled = signing;
+	if (public_key != NULL) {
+		memcpy(app_config.public_key, public_key, 32u);
+	} else {
+		memset(app_config.public_key, 0, 32u);
+	}
+	if (url != NULL) {
+		strncpy(app_config.distribution_url, url, 256u);
+		app_config.distribution_url[256] = '\0';
+	}
+}
+
+const _appConfig *GO_controller_info_get_app_config(void) {
+	return &app_config;
 }
 
 /****************************************************************************************/
