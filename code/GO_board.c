@@ -357,7 +357,7 @@ static void ControllerInfoTask(void *args) {
 							                      - prev_idle_time;
 							prev_idle_time = s_task_status[i].ulRunTimeCounter;
 							go_board_cpu_load = (uint8_t)(100u
-							    - (uint8_t)((idle_delta * 100UL) / total_delta));
+							    - (uint8_t)(((uint64_t)idle_delta * 100ULL) / total_delta));
 							break;
 						}
 					}
