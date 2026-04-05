@@ -68,7 +68,15 @@ static uint16_t Crc16(const uint8_t *data, size_t len)
 ** Module-level state
 ==============================================================================================*/
 
-static UART_HandleTypeDef *s_huart = NULL;
+static UART_HandleTypeDef *s_huart   = NULL;
+static volatile uint8_t    s_tx_busy = 0u;
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart == s_huart) {
+        s_tx_busy = 0u;
+    }
+}
 
 /* MQTT subscription registry */
 #define ESPIF_MQTT_SUB_MAX  8u
@@ -111,8 +119,8 @@ static uint8_t   s_rx_payload[ESPIF_MAX_PAYLOAD_LEN];
 static void SendFrame(uint8_t msg_id, const uint8_t *payload, uint16_t len)
 {
     if (s_huart == NULL || len > ESPIF_MAX_PAYLOAD_LEN) { return; }
+    if (s_tx_busy) { return; }   /* previous frame still transmitting — drop */
 
-    /* Static TX buffer — HAL_UART_Transmit is blocking so no re-entrancy issue. */
     static uint8_t s_tx_buf[ESPIF_FRAME_OVERHEAD + ESPIF_MAX_PAYLOAD_LEN];
     uint16_t n = 0u;
 
@@ -133,7 +141,10 @@ static void SendFrame(uint8_t msg_id, const uint8_t *payload, uint16_t len)
     s_tx_buf[n++] = (uint8_t)(crc & 0xFFu);
     s_tx_buf[n++] = (uint8_t)(crc >> 8u);
 
-    HAL_UART_Transmit(s_huart, s_tx_buf, n, 100u);
+    s_tx_busy = 1u;
+    if (HAL_UART_Transmit_IT(s_huart, s_tx_buf, n) != HAL_OK) {
+        s_tx_busy = 0u;
+    }
 }
 
 static void SendAck(uint8_t msg_id)

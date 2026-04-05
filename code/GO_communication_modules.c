@@ -81,6 +81,20 @@
  ****************************************************************************************/
 _hardwareConfig hardwareConfig;
 
+#ifdef GOCONTROLL_IOT
+static osSemaphoreId_t s_spi_done = NULL;
+
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
+	(void)hspi;
+	osSemaphoreRelease(s_spi_done);
+}
+
+void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
+	(void)hspi;
+	osSemaphoreRelease(s_spi_done);
+}
+#endif /* GOCONTROLL_IOT */
+
 /****************************************************************************************
  * Linux-specific internal helpers
  ****************************************************************************************/
@@ -198,6 +212,12 @@ int GO_communication_modules_initialize(uint8_t moduleslot) {
 	if (moduleslot >= hardwareConfig.moduleNumber) {
 		return -ENODEV;
 	}
+
+#ifdef GOCONTROLL_IOT
+	if (s_spi_done == NULL) {
+		s_spi_done = osSemaphoreNew(1, 0, NULL);
+	}
+#endif
 
 	for (uint8_t i = 0; i < 5; i++) {	
 		GO_communication_modules_reset_state_module(moduleslot, 1);
@@ -345,8 +365,12 @@ int GO_communication_modules_escape_from_bootloader(uint8_t module,
 						  GPIO_PIN_RESET);
 	}
 
-	HAL_SPI_TransmitReceive(&hspi1, &dataTx[0], &dataRx[0],
-							BOOTMESSAGELENGTHCHECK, 500);
+	if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
+		HAL_SPI_TransmitReceive_DMA(&hspi1, &dataTx[0], &dataRx[0], BOOTMESSAGELENGTHCHECK);
+		osSemaphoreAcquire(s_spi_done, 500);
+	} else {
+		HAL_SPI_TransmitReceive(&hspi1, &dataTx[0], &dataRx[0], BOOTMESSAGELENGTHCHECK, 100);
+	}
 
 	if (module == 0) {
 		HAL_GPIO_WritePin(SPI_MOD1_CS_GPIO_Port, SPI_MOD1_CS_Pin, GPIO_PIN_SET);
@@ -419,7 +443,12 @@ int GO_communication_modules_send_spi(uint8_t command, uint8_t dataLength,
 
 	/* Round delay in µs up to ms for HAL */
 	GO_communication_modules_delay_1ms(delay / 1000 + (delay % 1000 != 0));
-	HAL_SPI_Transmit(&hspi1, &dataTx[0], dataLength + MESSAGEOVERLENGTH, 500);
+	if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
+		HAL_SPI_Transmit_DMA(&hspi1, &dataTx[0], dataLength + MESSAGEOVERLENGTH);
+		osSemaphoreAcquire(s_spi_done, 500);
+	} else {
+		HAL_SPI_Transmit(&hspi1, &dataTx[0], dataLength + MESSAGEOVERLENGTH, 100);
+	}
 
 	if (module == 0) {
 		HAL_GPIO_WritePin(SPI_MOD1_CS_GPIO_Port, SPI_MOD1_CS_Pin, GPIO_PIN_SET);
@@ -475,8 +504,12 @@ int GO_communication_modules_send_receive_spi(uint8_t command, uint8_t dataLengt
 						  GPIO_PIN_RESET);
 	}
 
-	HAL_SPI_TransmitReceive(&hspi1, &dataTx[0], &dataRx[0],
-							dataLength + MESSAGEOVERLENGTH, 500);
+	if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
+		HAL_SPI_TransmitReceive_DMA(&hspi1, &dataTx[0], &dataRx[0], dataLength + MESSAGEOVERLENGTH);
+		osSemaphoreAcquire(s_spi_done, 500);
+	} else {
+		HAL_SPI_TransmitReceive(&hspi1, &dataTx[0], &dataRx[0], dataLength + MESSAGEOVERLENGTH, 100);
+	}
 
 	if (module == 0) {
 		HAL_GPIO_WritePin(SPI_MOD1_CS_GPIO_Port, SPI_MOD1_CS_Pin, GPIO_PIN_SET);

@@ -25,6 +25,8 @@
 /* USER CODE END 0 */
 
 SPI_HandleTypeDef hspi1;
+DMA_HandleTypeDef hdma_spi1_tx;
+DMA_HandleTypeDef hdma_spi1_rx;
 
 /* SPI1 init function */
 void MX_SPI1_Init(void)
@@ -80,6 +82,9 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* spiHandle)
 
   /* USER CODE END SPI1_MspInit 0 */
 
+  /* GPDMA1 clock enable */
+  __HAL_RCC_GPDMA1_CLK_ENABLE();
+
   /** Initializes the peripherals clock
   */
     PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_SPI1;
@@ -119,6 +124,50 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* spiHandle)
 
   /* USER CODE BEGIN SPI1_MspInit 1 */
 
+  /* SPI1 RX: GPDMA1 Channel 0 */
+  hdma_spi1_rx.Instance                   = GPDMA1_Channel0;
+  hdma_spi1_rx.Init.Request               = GPDMA1_REQUEST_SPI1_RX;
+  hdma_spi1_rx.Init.BlkHWRequest          = DMA_BREQ_SINGLE_BURST;
+  hdma_spi1_rx.Init.Direction             = DMA_PERIPH_TO_MEMORY;
+  hdma_spi1_rx.Init.SrcInc                = DMA_SINC_FIXED;
+  hdma_spi1_rx.Init.DestInc               = DMA_DINC_INCREMENTED;
+  hdma_spi1_rx.Init.SrcDataWidth          = DMA_SRC_DATAWIDTH_BYTE;
+  hdma_spi1_rx.Init.DestDataWidth         = DMA_DEST_DATAWIDTH_BYTE;
+  hdma_spi1_rx.Init.Priority              = DMA_LOW_PRIORITY_HIGH_WEIGHT;
+  hdma_spi1_rx.Init.SrcBurstLength        = 1;
+  hdma_spi1_rx.Init.DestBurstLength       = 1;
+  hdma_spi1_rx.Init.TransferAllocatedPort = DMA_SRC_ALLOCATED_PORT0 | DMA_DEST_ALLOCATED_PORT0;
+  hdma_spi1_rx.Init.TransferEventMode     = DMA_TCEM_BLOCK_TRANSFER;
+  hdma_spi1_rx.Init.Mode                  = DMA_NORMAL;
+  if (HAL_DMA_Init(&hdma_spi1_rx) != HAL_OK) { Error_Handler(); }
+  __HAL_LINKDMA(spiHandle, hdmarx, hdma_spi1_rx);
+  HAL_NVIC_SetPriority(GPDMA1_Channel0_IRQn, 6, 0);
+  HAL_NVIC_EnableIRQ(GPDMA1_Channel0_IRQn);
+
+  /* SPI1 TX: GPDMA1 Channel 1 */
+  hdma_spi1_tx.Instance                   = GPDMA1_Channel1;
+  hdma_spi1_tx.Init.Request               = GPDMA1_REQUEST_SPI1_TX;
+  hdma_spi1_tx.Init.BlkHWRequest          = DMA_BREQ_SINGLE_BURST;
+  hdma_spi1_tx.Init.Direction             = DMA_MEMORY_TO_PERIPH;
+  hdma_spi1_tx.Init.SrcInc                = DMA_SINC_INCREMENTED;
+  hdma_spi1_tx.Init.DestInc               = DMA_DINC_FIXED;
+  hdma_spi1_tx.Init.SrcDataWidth          = DMA_SRC_DATAWIDTH_BYTE;
+  hdma_spi1_tx.Init.DestDataWidth         = DMA_DEST_DATAWIDTH_BYTE;
+  hdma_spi1_tx.Init.Priority              = DMA_LOW_PRIORITY_HIGH_WEIGHT;
+  hdma_spi1_tx.Init.SrcBurstLength        = 1;
+  hdma_spi1_tx.Init.DestBurstLength       = 1;
+  hdma_spi1_tx.Init.TransferAllocatedPort = DMA_SRC_ALLOCATED_PORT0 | DMA_DEST_ALLOCATED_PORT0;
+  hdma_spi1_tx.Init.TransferEventMode     = DMA_TCEM_BLOCK_TRANSFER;
+  hdma_spi1_tx.Init.Mode                  = DMA_NORMAL;
+  if (HAL_DMA_Init(&hdma_spi1_tx) != HAL_OK) { Error_Handler(); }
+  __HAL_LINKDMA(spiHandle, hdmatx, hdma_spi1_tx);
+  HAL_NVIC_SetPriority(GPDMA1_Channel1_IRQn, 6, 0);
+  HAL_NVIC_EnableIRQ(GPDMA1_Channel1_IRQn);
+
+  /* SPI1 peripheral IRQ (handles EOT after DMA, plus UDR/FRE/MODF errors) */
+  HAL_NVIC_SetPriority(SPI1_IRQn, 6, 0);
+  HAL_NVIC_EnableIRQ(SPI1_IRQn);
+
   /* USER CODE END SPI1_MspInit 1 */
   }
 }
@@ -133,6 +182,12 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* spiHandle)
   /* USER CODE END SPI1_MspDeInit 0 */
     /* Peripheral clock disable */
     __HAL_RCC_SPI1_CLK_DISABLE();
+
+    HAL_DMA_DeInit(spiHandle->hdmarx);
+    HAL_DMA_DeInit(spiHandle->hdmatx);
+    HAL_NVIC_DisableIRQ(GPDMA1_Channel0_IRQn);
+    HAL_NVIC_DisableIRQ(GPDMA1_Channel1_IRQn);
+    HAL_NVIC_DisableIRQ(SPI1_IRQn);
 
     /**SPI1 GPIO Configuration
     PA5     ------> SPI1_SCK
