@@ -172,6 +172,7 @@ void					   *XcpConnection_fd;
 static uint8_t				xcpTransmissionBus = 0;
 
 osMessageQueueId_t xcp_received;
+static osSemaphoreId_t s_daq_semaphore = NULL;
 
 /****************************************************************************************/
 
@@ -237,6 +238,7 @@ void GO_xcp_init_can(FDCAN_HandleTypeDef *can_channel,
 		err("Could not config filter: 0x%x\n", can_channel->ErrorCode);
 
 	xcp_received = osMessageQueueNew(10, sizeof(struct can_frame), NULL);
+	s_daq_semaphore = osSemaphoreNew(1, 0, NULL);
 
 	if (HAL_FDCAN_RegisterRxFifo1Callback(can_channel, HAL_FDCAN_RxFifo1Callback) != HAL_OK)
 		err("Could not register FIFO1 callback: 0x%x\n", can_channel->ErrorCode);
@@ -256,7 +258,8 @@ void GO_xcp_thread_can(void *args) {
 	struct can_frame message;
 
 	while (1) {
-		if (!osMessageQueueGet(xcp_received, &message, 0, osWaitForever)) {
+		/* Wait up to 1 ms for an incoming CAN frame */
+		if (!osMessageQueueGet(xcp_received, &message, 0, 1)) {
 			dbg("received CAN message, dlc: %d, id: %x\ndata: [",
 				GO_communication_can_packed_dlc(&message), message.id);
 			for (int i = 0; i < GO_communication_can_packed_dlc(&message); i++) {
@@ -268,6 +271,23 @@ void GO_xcp_thread_can(void *args) {
 			XcpCommunicationHandling(message.data, GO_communication_can_packed_dlc(&message),
 									 dataToSend);
 		}
+
+		/* If model_step triggered a DAQ transmission, send it now */
+		if (osSemaphoreAcquire(s_daq_semaphore, 0) == osOK) {
+			XcpDataTransmission();
+		}
+	}
+}
+
+/**************************************************************************************
+** \brief     Trigger DAQ data transmission from the model step context.
+**            The actual transmission is deferred to the XCP task to avoid
+**            blocking model_step with per-frame CAN delays.
+** \return    none
+***************************************************************************************/
+void GO_xcp_trigger_daq(void) {
+	if (s_daq_semaphore != NULL) {
+		osSemaphoreRelease(s_daq_semaphore);
 	}
 }
 
