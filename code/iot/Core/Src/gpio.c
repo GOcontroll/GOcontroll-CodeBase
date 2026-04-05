@@ -53,7 +53,8 @@ void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, SPI_MOD2_CS_Pin|MOD_SYNC_CLOCK_Pin|CAN2_SILENT_UCO_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, MOD_SYNC_CLOCK_Pin|CAN2_SILENT_UCO_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, SPI_MOD2_CS_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(MOD2_RESET_GPIO_Port, MOD2_RESET_Pin, GPIO_PIN_SET);
@@ -65,7 +66,7 @@ void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(KL15_CONTROLLER_UCO_GPIO_Port, KL15_CONTROLLER_UCO_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(SPI_MOD1_CS_GPIO_Port, SPI_MOD1_CS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(SPI_MOD1_CS_GPIO_Port, SPI_MOD1_CS_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(MOD1_RESET_GPIO_Port, MOD1_RESET_Pin, GPIO_PIN_SET);
