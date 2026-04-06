@@ -119,6 +119,11 @@ void GO_communication_can_bus_off_recovery(FDCAN_HandleTypeDef *hfdcan,
 	}
 }
 
+/* Per-channel bitrate bookkeeping — set by GO_communication_can_initialize(),
+ * read by can_get_esp_bitrate() for the ESP protocol info message. */
+static uint8_t s_can1_esp_bitrate = 0u;
+static uint8_t s_can2_esp_bitrate = 0u;
+
 /**************************************************************************************
 ** \brief     Initialise an FDCAN peripheral (HAL init + global filter). Does NOT
 **            start the peripheral; call GO_communication_can_start() afterwards once
@@ -171,6 +176,12 @@ int GO_communication_can_initialize(FDCAN_HandleTypeDef *hfdcan, uint32_t baudra
 	}
 
 	dbg("FDCAN init OK, prescaler=%d\n", t->prescaler);
+
+	if (hfdcan->Instance == FDCAN1)
+		s_can1_esp_bitrate = (uint8_t)(baudrate + 1u);
+	else if (hfdcan->Instance == FDCAN2)
+		s_can2_esp_bitrate = (uint8_t)(baudrate + 1u);
+
 	return 0;
 }
 
@@ -196,25 +207,9 @@ int GO_communication_can_start(FDCAN_HandleTypeDef *hfdcan) {
 	return 0;
 }
 
-/*==============================================================================================
-** Short-name public API — thin wrappers + per-channel bitrate bookkeeping.
-** Used by Simulink-generated code and ESP protocol (can_get_esp_bitrate).
-==============================================================================================*/
-
-static uint8_t s_can1_esp_bitrate = 0u;
-static uint8_t s_can2_esp_bitrate = 0u;
-
 int init_can(FDCAN_HandleTypeDef *hfdcan, uint32_t baudrate, FunctionalState autort)
 {
-    int result = GO_communication_can_initialize(hfdcan, baudrate, autort);
-    if (result == 0)
-    {
-        if (hfdcan->Instance == FDCAN1)
-            s_can1_esp_bitrate = (uint8_t)(baudrate + 1u);
-        else if (hfdcan->Instance == FDCAN2)
-            s_can2_esp_bitrate = (uint8_t)(baudrate + 1u);
-    }
-    return result;
+    return GO_communication_can_initialize(hfdcan, baudrate, autort);
 }
 
 int start_can(FDCAN_HandleTypeDef *hfdcan)
