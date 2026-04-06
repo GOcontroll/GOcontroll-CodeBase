@@ -78,8 +78,8 @@
  * ControllerPower — IoT
  * ===================================== */
 
-/* ADC channel mapping: index 0 = K30/battery (CH9), index 1 = K15-A (CH10) */
-static uint32_t s_channels[2] = {ADC_CHANNEL_9, ADC_CHANNEL_10};
+/* ADC channel mapping: index 0 = K15/battery (CH9), index 1 = K30 (CH5) */
+static uint32_t s_channels[2] = {ADC_CHANNEL_9, ADC_CHANNEL_5};
 
 static _controllerSupply s_controllerSupply;
 
@@ -108,7 +108,7 @@ static int readAdc(uint8_t index, uint16_t* value) {
 		return -1;
 	}
 
-	*value = (uint16_t)(float)(((HAL_ADC_GetValue(&hadc1) * 0.805) / 1200) * 11400);
+	*value = (uint16_t)(HAL_ADC_GetValue(&hadc1) * 8.7);
 	return 0;
 }
 
@@ -118,8 +118,8 @@ static void adcThreadFunc(void* arg) {
 
 	while (s_adcThreadArgs.thread_run) {
 		tick += s_adcThreadArgs.sample_time;
-		readAdc(0, &s_controllerSupply.batteryVoltage);
-		readAdc(1, &s_controllerSupply.k15aVoltage);
+		readAdc(1, &s_controllerSupply.batteryVoltage);
+		readAdc(0, &s_controllerSupply.k15aVoltage);
 		osDelayUntil(tick);
 	}
 	osThreadExit();
