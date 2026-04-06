@@ -145,6 +145,24 @@ void    can_bus_off_recovery(FDCAN_HandleTypeDef *hfdcan, uint32_t ErrorStatusIT
 ***************************************************************************************/
 uint8_t can_get_esp_bitrate(uint8_t channel);
 
+/**************************************************************************************
+** \brief     Accumulate the bit-time cost of one CAN frame on a channel.
+**            Call from both the TX path (task context) and the FIFO0 RX callback (ISR).
+** \param     channel   1 = CAN1, 2 = CAN2.
+** \param     dlc       Data length code in bytes (0–8).
+** \param     extended  true for 29-bit extended ID, false for 11-bit standard ID.
+** \return    none
+***************************************************************************************/
+void can_busload_count_frame(uint8_t channel, uint8_t dlc, bool extended);
+
+/**************************************************************************************
+** \brief     Return the CAN bus load for the given channel and reset the accumulator.
+**            Call periodically (e.g. every 200 ms from GO_communication_esp_send_cyclic_info).
+** \param     channel  1 = CAN1, 2 = CAN2.
+** \return    Bus load in percent (0–100), or 0 if the channel is not initialised.
+***************************************************************************************/
+uint8_t can_get_busload(uint8_t channel);
+
 /*==============================================================================================
 ** Shared per-bus receive buffer — used by the legacy CAN receive block (dynamic CAN ID).
 ** All non-matching frames arrive in FIFO0 via the global filter. The FIFO0 callback

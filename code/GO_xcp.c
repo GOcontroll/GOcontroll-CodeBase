@@ -54,6 +54,7 @@
 
 #include "Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h"
 #include "cmsis_os2.h"
+#include "GO_communication_can.h"
 #elif defined(GOCONTROLL_LINUX)
 
 #include <arpa/inet.h>
@@ -186,9 +187,12 @@ void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs)
 	if (RxFifo1ITs & FDCAN_IT_RX_FIFO1_NEW_MESSAGE) {
 		FDCAN_RxHeaderTypeDef header;
 		struct can_frame message;
+		uint8_t ch = (hfdcan->Instance == FDCAN1) ? 1u : 2u;
 		while (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO1, &header, message.data) ==
 			   HAL_OK) {
 			GO_communication_can_pack_header(&message, &header);
+			can_busload_count_frame(ch, message.flags & CAN_PACKED_DLC,
+			                        (message.flags & CAN_PACKED_EXTID) != 0u);
 			osMessageQueuePut(xcp_received, &message, 0, 0);
 		}
 	}
@@ -327,6 +331,10 @@ static uint8_t XcpCanSend(uint8_t *data) {
 	header.FDFormat            = FDCAN_CLASSIC_CAN;
 	header.TxEventFifoControl  = FDCAN_NO_TX_EVENTS;
 	header.MessageMarker       = 0;
+	{
+		uint8_t ch = (((FDCAN_HandleTypeDef*)XcpConnection_fd)->Instance == FDCAN1) ? 1u : 2u;
+		can_busload_count_frame(ch, (uint8_t)data[0], xcpDtoIdExt != 0);
+	}
 	if (HAL_FDCAN_AddMessageToTxFifoQ((FDCAN_HandleTypeDef*)XcpConnection_fd, &header, &data[1]) != HAL_OK)
 		return 1;
 	return 0;

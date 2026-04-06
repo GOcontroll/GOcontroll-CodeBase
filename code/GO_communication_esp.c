@@ -462,8 +462,8 @@ void GO_communication_esp_send_cyclic_info(void)
     info.temperature_x10 = (int16_t)(imu.temp * 10.0f);
     info.can1_bitrate    = can_get_esp_bitrate(1u);
     info.can2_bitrate    = can_get_esp_bitrate(2u);
-    info.can1_busload    = 0u; /* bus load measurement not yet implemented */
-    info.can2_busload    = 0u;
+    info.can1_busload    = can_get_busload(1u);
+    info.can2_busload    = can_get_busload(2u);
     info.accel_x         = (int16_t)imu.acc_x;
     info.accel_y         = (int16_t)imu.acc_y;
     info.accel_z         = (int16_t)imu.acc_z;
