@@ -427,9 +427,10 @@ void GO_communication_esp_send_app_config(void)
     uint8_t  payload[sizeof(EspInterface_AppConfig_t) + 256u];
 
     EspInterface_AppConfig_t *hdr = (EspInterface_AppConfig_t *)payload;
-    memcpy(hdr->app_id, cfg->app_id, 4u);
+    memcpy(hdr->app_id, cfg->app_id, 8u);
     hdr->signing_enabled = cfg->signing_enabled;
-    memcpy(hdr->public_key, cfg->public_key, 32u);
+    memcpy(hdr->public_key, cfg->public_key, 65u);
+    hdr->latest_only = cfg->latest_only;
     hdr->url_len = url_len;
     if (url_len > 0u) {
         memcpy(payload + sizeof(EspInterface_AppConfig_t),

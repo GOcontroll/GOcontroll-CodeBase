@@ -151,14 +151,15 @@ typedef struct __attribute__((packed))
 } EspInterface_CyclicInfo_t;
 
 /** ESPIF_MSG_APP_CONFIG payload — variable length.
- *  Fixed part: 4 (app_id) + 1 (signing_enabled) + 32 (public_key) + 1 (url_len) = 38 bytes.
+ *  Fixed part: 8 (app_id) + 1 (signing_enabled) + 65 (public_key) + 1 (latest_only) + 1 (url_len) = 76 bytes.
  *  Followed by url_len bytes of the distribution URL string (not null-terminated on the wire). */
 typedef struct __attribute__((packed))
 {
-    uint8_t app_id[4];       /**< 4-char ASCII application identifier (e.g. "GOCO")          */
-    uint8_t signing_enabled; /**< 1 = future updates require Ed25519 signature, 0 = unsigned  */
-    uint8_t public_key[32];  /**< Ed25519 public key for next-update verification             */
-    uint8_t url_len;         /**< Length of the distribution_url string that follows          */
+    uint8_t app_id[8];       /**< 8-char ASCII application identifier, space-padded (e.g. "GOCO    ") */
+    uint8_t signing_enabled; /**< 1 = future updates require ECDSA P-256 signature, 0 = unsigned      */
+    uint8_t public_key[65];  /**< ECDSA P-256 public key uncompressed (0x04||X||Y); zeroed if signing off */
+    uint8_t latest_only;     /**< 1 = app shows only "update to latest" button, 0 = version picker    */
+    uint8_t url_len;         /**< Length of the distribution_url string that follows                  */
     /* uint8_t distribution_url[url_len]; — appended after the struct */
 } EspInterface_AppConfig_t;
 

@@ -65,28 +65,31 @@ int GO_controller_info_get_model_version(_modelVersion *ver) {
 /****************************************************************************************/
 
 static _appConfig app_config = {
-	.app_id           = "GOCO",
+	.app_id           = "GOCOFREE",
 	.signing_enabled  = 0u,
 	.public_key       = {0},
 	.distribution_url = "https://deploy.gocontroll.com",
+	.latest_only   = 0u,
 };
 
 void GO_controller_info_set_app_config(const char *app_id, uint8_t signing,
-                                        const uint8_t *public_key, const char *url) {
+                                        const uint8_t *public_key, const char *url,
+                                        uint8_t latest_only) {
 	if (app_id != NULL) {
-		strncpy(app_config.app_id, app_id, 4u);
-		app_config.app_id[4] = '\0';
+		strncpy(app_config.app_id, app_id, 8u);
+		app_config.app_id[8] = '\0';
 	}
 	app_config.signing_enabled = signing;
 	if (public_key != NULL) {
-		memcpy(app_config.public_key, public_key, 32u);
+		memcpy(app_config.public_key, public_key, 65u);
 	} else {
-		memset(app_config.public_key, 0, 32u);
+		memset(app_config.public_key, 0, 65u);
 	}
 	if (url != NULL) {
 		strncpy(app_config.distribution_url, url, 256u);
 		app_config.distribution_url[256] = '\0';
 	}
+	app_config.latest_only = latest_only;
 }
 
 const _appConfig *GO_controller_info_get_app_config(void) {
