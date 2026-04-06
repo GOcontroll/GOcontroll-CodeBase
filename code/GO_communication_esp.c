@@ -40,7 +40,7 @@
 #include "GO_board.h"
 #include "GO_controller_info.h"
 #include "GO_communication_can.h"
-#include "SEGGER_RTT.h"
+
 /*==============================================================================================
 ** CRC-16/CCITT — polynomial 0x1021, init 0xFFFF, MSB-first, no reflection.
 ** Applied over: MSG_ID + LEN_LO + LEN_HI + PAYLOAD bytes.
@@ -373,7 +373,7 @@ void GO_communication_esp_send_static_info(void)
     EspInterface_StaticInfo_t info;
     _moduleInfo mod;
     _modelVersion ver;
-SEGGER_RTT_printf(0, "Send serial info\n");
+
     if (GO_controller_info_get_module_info(0, &mod) == 0)
     {
 		
@@ -407,7 +407,7 @@ SEGGER_RTT_printf(0, "Send serial info\n");
     info.app_minor = ver.minor;
     info.app_patch = ver.patch;
 	
-	SEGGER_RTT_printf(0, "SModule Patch: %d\n",info.app_patch );
+
 
     SendFrame(ESPIF_MSG_STATIC_INFO, (const uint8_t *)&info, sizeof(info));
 }
@@ -769,7 +769,6 @@ __attribute__((weak)) void GO_communication_esp_on_time_sync(
     uint16_t year, uint8_t month, uint8_t day,
     uint8_t hour, uint8_t minute, uint8_t second)
 {
-	SEGGER_RTT_printf(0, "Time Sync: %d\n",year);
     RTC_TimeTypeDef sTime = {0};
     RTC_DateTypeDef sDate = {0};
     sTime.Hours          = hour;
