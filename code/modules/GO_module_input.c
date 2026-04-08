@@ -432,15 +432,16 @@ int GO_module_input_6ch_configure_supply(_inputModule* inputModule, uint8_t supp
 /****************************************************************************************/
 
 int GO_module_input_10ch_configure_supply(_inputModule* inputModule,
-									uint8_t supply1) {
+									uint8_t supply1, uint8_t supply2) {
 	if (inputModule->moduleType != INPUTMODULE10CHANNEL) {
 		err("Incorrect module type selected for supply configuration in slot "
 			"%d, this function is only meant for 10 channel modules.\n",
 			inputModule->moduleSlot + 1);
 		return -EINVAL;
 	}
-	if (supply1 == 1 || supply1 == 2) {
+	if ((supply1 == 1 || supply1 == 2) && (supply2 == 1 || supply2 == 2)) {
 		inputModule->sensorSupply1 = supply1;
+		inputModule->sensorSupply2 = supply2;
 		return 0;
 	}
 	err("Incorrect sensor supply option set for inputmodule in slot %d, "

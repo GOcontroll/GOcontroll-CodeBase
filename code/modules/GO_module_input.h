@@ -213,6 +213,6 @@ int GO_module_input_6ch_configure_supply(_inputModule* inputModule, uint8_t supp
 ** \param     supply1      State of the sensor supply (use INPUTSENSSUPPLYON or INPUTSENSSUPPLYOFF).
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GO_module_input_10ch_configure_supply(_inputModule* inputModule, uint8_t supply1);
+int GO_module_input_10ch_configure_supply(_inputModule* inputModule, uint8_t supply1, uint8_t supply2);
 
 #endif /* GO_MODULE_INPUT_H */
