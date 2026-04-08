@@ -79,6 +79,7 @@ typedef enum
     /* STM32H → ESP */
     ESPIF_MSG_STATIC_INFO       = 0x10u,  /**< One-time identity/version snapshot. Payload: 17 bytes fixed. */
     ESPIF_MSG_CYCLIC_INFO       = 0x11u,  /**< Cyclic telemetry (every 200 ms). Payload: 21 bytes fixed.    */
+    ESPIF_MSG_APP_CONFIG        = 0x12u,  /**< One-time app configuration. Payload: variable (5 + url_len bytes). */
     ESPIF_MSG_MODEM_CONFIG      = 0x20u,  /**< APN + SIM PIN. Payload: variable.              */
     ESPIF_MSG_LTE_ENABLE        = 0x21u,  /**< Start/stop LTE. Payload: 1 byte (0/1).         */
     ESPIF_MSG_MQTT_CONFIG       = 0x22u,  /**< Broker credentials. Payload: variable.         */
@@ -149,6 +150,19 @@ typedef struct __attribute__((packed))
     uint16_t stack_available;  /**< Model task stack high-water mark in bytes          */
 } EspInterface_CyclicInfo_t;
 
+/** ESPIF_MSG_APP_CONFIG payload — variable length.
+ *  Fixed part: 8 (app_id) + 1 (signing_enabled) + 65 (public_key) + 1 (latest_only) + 1 (url_len) = 76 bytes.
+ *  Followed by url_len bytes of the distribution URL string (not null-terminated on the wire). */
+typedef struct __attribute__((packed))
+{
+    uint8_t app_id[8];       /**< 8-char ASCII application identifier, space-padded (e.g. "GOCO    ") */
+    uint8_t signing_enabled; /**< 1 = future updates require ECDSA P-256 signature, 0 = unsigned      */
+    uint8_t public_key[65];  /**< ECDSA P-256 public key uncompressed (0x04||X||Y); zeroed if signing off */
+    uint8_t latest_only;     /**< 1 = app shows only "update to latest" button, 0 = version picker    */
+    uint8_t url_len;         /**< Length of the distribution_url string that follows                  */
+    /* uint8_t distribution_url[url_len]; — appended after the struct */
+} EspInterface_AppConfig_t;
+
 /** ESPIF_MSG_GPS_DATA payload — exactly 25 bytes. */
 typedef struct __attribute__((packed))
 {
@@ -212,6 +226,15 @@ void GO_communication_esp_send_static_info(void);
 ** \return    none
 ***************************************************************************************/
 void GO_communication_esp_send_cyclic_info(void);
+
+/**************************************************************************************
+** \brief     Gather application configuration (app ID and distribution URL) from
+**            GO_controller_info and send an ESPIF_MSG_APP_CONFIG frame to the ESP.
+**            Call once after startup, immediately after
+**            GO_communication_esp_send_static_info().
+** \return    none
+***************************************************************************************/
+void GO_communication_esp_send_app_config(void);
 
 /**************************************************************************************
 ** \brief     Apply a time-sync payload received from the ESP to the STM32 RTC.

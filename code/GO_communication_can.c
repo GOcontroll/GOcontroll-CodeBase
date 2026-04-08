@@ -119,6 +119,20 @@ void GO_communication_can_bus_off_recovery(FDCAN_HandleTypeDef *hfdcan,
 	}
 }
 
+/* Per-channel bitrate bookkeeping — set by GO_communication_can_initialize(),
+ * read by can_get_esp_bitrate() / can_get_busload() for the ESP protocol info message. */
+static uint8_t s_can1_esp_bitrate = 0u;
+static uint8_t s_can2_esp_bitrate = 0u;
+
+/* Per-channel bus load accumulators.
+ * bits_accumulated: total bit-time-equivalent bits seen since last can_get_busload() call.
+ * last_cyccnt:      DWT->CYCCNT snapshot taken at the end of the last can_get_busload() call. */
+struct can_busload_state {
+    volatile uint32_t bits_accumulated;
+    uint32_t          last_cyccnt;
+};
+static struct can_busload_state s_busload[2];
+
 /**************************************************************************************
 ** \brief     Initialise an FDCAN peripheral (HAL init + global filter). Does NOT
 **            start the peripheral; call GO_communication_can_start() afterwards once
@@ -134,6 +148,10 @@ int GO_communication_can_initialize(FDCAN_HandleTypeDef *hfdcan, uint32_t baudra
 		err("Invalid baudrate index %d\n", baudrate);
 		return -1;
 	}
+
+	/* Enable DWT cycle counter for bus load timing (safe to call multiple times). */
+	CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+	DWT->CTRL        |= DWT_CTRL_CYCCNTENA_Msk;
 
 	const struct fdcan_timing *t = &timing_table[baudrate];
 
@@ -171,6 +189,18 @@ int GO_communication_can_initialize(FDCAN_HandleTypeDef *hfdcan, uint32_t baudra
 	}
 
 	dbg("FDCAN init OK, prescaler=%d\n", t->prescaler);
+
+	uint8_t ch_idx;
+	if (hfdcan->Instance == FDCAN1) {
+		s_can1_esp_bitrate = (uint8_t)(baudrate + 1u);
+		ch_idx = 0u;
+	} else {
+		s_can2_esp_bitrate = (uint8_t)(baudrate + 1u);
+		ch_idx = 1u;
+	}
+	s_busload[ch_idx].bits_accumulated = 0u;
+	s_busload[ch_idx].last_cyccnt      = DWT->CYCCNT;
+
 	return 0;
 }
 
@@ -196,25 +226,9 @@ int GO_communication_can_start(FDCAN_HandleTypeDef *hfdcan) {
 	return 0;
 }
 
-/*==============================================================================================
-** Short-name public API — thin wrappers + per-channel bitrate bookkeeping.
-** Used by Simulink-generated code and ESP protocol (can_get_esp_bitrate).
-==============================================================================================*/
-
-static uint8_t s_can1_esp_bitrate = 0u;
-static uint8_t s_can2_esp_bitrate = 0u;
-
 int init_can(FDCAN_HandleTypeDef *hfdcan, uint32_t baudrate, FunctionalState autort)
 {
-    int result = GO_communication_can_initialize(hfdcan, baudrate, autort);
-    if (result == 0)
-    {
-        if (hfdcan->Instance == FDCAN1)
-            s_can1_esp_bitrate = (uint8_t)(baudrate + 1u);
-        else if (hfdcan->Instance == FDCAN2)
-            s_can2_esp_bitrate = (uint8_t)(baudrate + 1u);
-    }
-    return result;
+    return GO_communication_can_initialize(hfdcan, baudrate, autort);
 }
 
 int start_can(FDCAN_HandleTypeDef *hfdcan)
@@ -252,6 +266,62 @@ uint8_t can_get_esp_bitrate(uint8_t channel)
     if (channel == 1u) return s_can1_esp_bitrate;
     if (channel == 2u) return s_can2_esp_bitrate;
     return 0u;
+}
+
+/**************************************************************************************
+** \brief     Accumulate the bit-time cost of one CAN frame on a channel.
+**            Called from both TX path (task context) and RX FIFO0 callback (ISR context).
+**            Uses a Classic CAN frame bit count with a ×1.1 stuffing factor (half worst-case):
+**              Standard: (47 + dlc×8) × 11/10 bits
+**              Extended: (67 + dlc×8) × 11/10 bits
+** \param     channel   1 = CAN1, 2 = CAN2.
+** \param     dlc       Data length code in bytes (0–8).
+** \param     extended  true for 29-bit extended identifier, false for 11-bit standard.
+** \return    none
+***************************************************************************************/
+void can_busload_count_frame(uint8_t channel, uint8_t dlc, bool extended)
+{
+    if (channel < 1u || channel > 2u) { return; }
+    uint32_t overhead  = extended ? 67u : 47u;
+    uint32_t bits      = (overhead + (uint32_t)dlc * 8u) * 11u / 10u;
+    s_busload[channel - 1u].bits_accumulated += bits;
+}
+
+/**************************************************************************************
+** \brief     Return the CAN bus load for the given channel and reset the accumulator.
+**            Call periodically (e.g. every 200 ms from GO_communication_esp_send_cyclic_info).
+**            Uses DWT->CYCCNT for elapsed-time measurement.
+** \param     channel  1 = CAN1, 2 = CAN2.
+** \return    Bus load in percent (0–100), or 0 if the channel is not initialised.
+***************************************************************************************/
+uint8_t can_get_busload(uint8_t channel)
+{
+    static const uint32_t bitrate_bps[5] = {0u, 125000u, 250000u, 500000u, 1000000u};
+
+    if (channel < 1u || channel > 2u) { return 0u; }
+
+    uint8_t  bitrate_idx = (channel == 1u) ? s_can1_esp_bitrate : s_can2_esp_bitrate;
+    if (bitrate_idx == 0u) { return 0u; }  /* channel not initialised */
+
+    struct can_busload_state *s = &s_busload[channel - 1u];
+
+    uint32_t now     = DWT->CYCCNT;
+    uint32_t elapsed = now - s->last_cyccnt;  /* correct even when CYCCNT wraps */
+    s->last_cyccnt   = now;
+
+    taskENTER_CRITICAL();
+    uint32_t bits = s->bits_accumulated;
+    s->bits_accumulated = 0u;
+    taskEXIT_CRITICAL();
+
+    if (elapsed == 0u) { return 0u; }
+
+    /* load = bits_on_bus / (bitrate × elapsed_seconds) × 100
+     *      = bits × SystemCoreClock × 100 / (bitrate × elapsed_cycles)   */
+    uint64_t load = (uint64_t)bits * (uint64_t)SystemCoreClock * 100ULL
+                    / ((uint64_t)bitrate_bps[bitrate_idx] * (uint64_t)elapsed);
+
+    return (load > 100u) ? 100u : (uint8_t)load;
 }
 
 /*==============================================================================================

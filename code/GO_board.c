@@ -78,8 +78,8 @@
  * ControllerPower — IoT
  * ===================================== */
 
-/* ADC channel mapping: index 0 = K30/battery (CH9), index 1 = K15-A (CH10) */
-static uint32_t s_channels[2] = {ADC_CHANNEL_9, ADC_CHANNEL_10};
+/* ADC channel mapping: index 0 = K15/battery (CH9), index 1 = K30 (CH5) */
+static uint32_t s_channels[2] = {ADC_CHANNEL_9, ADC_CHANNEL_5};
 
 static _controllerSupply s_controllerSupply;
 
@@ -108,7 +108,7 @@ static int readAdc(uint8_t index, uint16_t* value) {
 		return -1;
 	}
 
-	*value = (uint16_t)(float)(((HAL_ADC_GetValue(&hadc1) * 0.805) / 1200) * 11400);
+	*value = (uint16_t)(HAL_ADC_GetValue(&hadc1) * 8.7);
 	return 0;
 }
 
@@ -118,8 +118,8 @@ static void adcThreadFunc(void* arg) {
 
 	while (s_adcThreadArgs.thread_run) {
 		tick += s_adcThreadArgs.sample_time;
-		readAdc(0, &s_controllerSupply.batteryVoltage);
-		readAdc(1, &s_controllerSupply.k15aVoltage);
+		readAdc(1, &s_controllerSupply.batteryVoltage);
+		readAdc(0, &s_controllerSupply.k15aVoltage);
 		osDelayUntil(tick);
 	}
 	osThreadExit();
@@ -223,10 +223,10 @@ int GO_board_status_leds_led_control(uint8_t led, _ledColor color, uint8_t value
 	}
 	switch (color) {
 		case LED_COLOR_RED:
-			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, (uint32_t)value);
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, (uint32_t)value);
 			break;
 		case LED_COLOR_GREEN:
-			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, (uint32_t)value);
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, (uint32_t)value);
 			break;
 		case LED_COLOR_BLUE:
 			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, (uint32_t)value);
@@ -261,23 +261,23 @@ static void AccInit(void) {
 	uint8_t data;
 
 	/* WHO_AM_I (0x0F) — expected value 0x69 for LSM6DS3 */
-	HAL_I2C_Mem_Read(&hi2c3, ACCELERO_ADDR, 0x0Fu, 1u, &data, 1u, 1000u);
+	HAL_I2C_Mem_Read(&hi2c2, ACCELERO_ADDR, 0x0Fu, 1u, &data, 1u, 1000u);
 
 	/* INT1_CTRL (0x0D): INT1 on gyro data-ready */
 	data = 0x02u;
-	HAL_I2C_Mem_Write(&hi2c3, ACCELERO_ADDR, 0x0Du, 1u, &data, 1u, 1000u);
+	HAL_I2C_Mem_Write(&hi2c2, ACCELERO_ADDR, 0x0Du, 1u, &data, 1u, 1000u);
 
 	/* INT2_CTRL (0x0E): INT2 on accel data-ready */
 	data = 0x01u;
-	HAL_I2C_Mem_Write(&hi2c3, ACCELERO_ADDR, 0x0Eu, 1u, &data, 1u, 1000u);
+	HAL_I2C_Mem_Write(&hi2c2, ACCELERO_ADDR, 0x0Eu, 1u, &data, 1u, 1000u);
 
 	/* CTRL1_XL (0x10): ODR 104 Hz, ±16 g */
 	data = 0x44u;
-	HAL_I2C_Mem_Write(&hi2c3, ACCELERO_ADDR, 0x10u, 1u, &data, 1u, 1000u);
+	HAL_I2C_Mem_Write(&hi2c2, ACCELERO_ADDR, 0x10u, 1u, &data, 1u, 1000u);
 
 	/* CTRL2_G (0x11): ODR 104 Hz, 250 dps */
 	data = 0x40u;
-	HAL_I2C_Mem_Write(&hi2c3, ACCELERO_ADDR, 0x11u, 1u, &data, 1u, 1000u);
+	HAL_I2C_Mem_Write(&hi2c2, ACCELERO_ADDR, 0x11u, 1u, &data, 1u, 1000u);
 }
 
 static void AccProcess(void) {
@@ -286,12 +286,12 @@ static void AccProcess(void) {
 	float          acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z, temp;
 
 	/* Temperature: OUT_TEMP_L / OUT_TEMP_H (0x20-0x21) */
-	HAL_I2C_Mem_Read(&hi2c3, ACCELERO_ADDR, 0x20u, 1u, data, 2u, 500u);
+	HAL_I2C_Mem_Read(&hi2c2, ACCELERO_ADDR, 0x20u, 1u, data, 2u, 500u);
 	result = (int16_t)((uint16_t)data[0] | ((uint16_t)data[1] << 8u));
 	temp = (float)result / 256.0f + 25.0f;
 
 	/* Gyroscope: OUTX_L_G ... OUTZ_H_G (0x22-0x27), 8.75 mdps/LSB */
-	HAL_I2C_Mem_Read(&hi2c3, ACCELERO_ADDR, 0x22u, 1u, data, 6u, 500u);
+	HAL_I2C_Mem_Read(&hi2c2, ACCELERO_ADDR, 0x22u, 1u, data, 6u, 500u);
 	result = (int16_t)((uint16_t)data[0] | ((uint16_t)data[1] << 8u));
 	gyro_x = (float)result * 8.75f;
 	result = (int16_t)((uint16_t)data[2] | ((uint16_t)data[3] << 8u));
@@ -300,7 +300,7 @@ static void AccProcess(void) {
 	gyro_z = (float)result * 8.75f;
 
 	/* Accelerometer: OUTX_L_XL ... OUTZ_H_XL (0x28-0x2D), 0.488 mg/LSB */
-	HAL_I2C_Mem_Read(&hi2c3, ACCELERO_ADDR, 0x28u, 1u, data, 6u, 500u);
+	HAL_I2C_Mem_Read(&hi2c2, ACCELERO_ADDR, 0x28u, 1u, data, 6u, 500u);
 	result = (int16_t)((uint16_t)data[0] | ((uint16_t)data[1] << 8u));
 	acc_x = (float)result * 0.488f;
 	result = (int16_t)((uint16_t)data[2] | ((uint16_t)data[3] << 8u));
@@ -322,7 +322,7 @@ static void AccProcess(void) {
 
 static void ControllerInfoTask(void *args) {
 	(void)args;
-	MX_I2C3_Init();
+	MX_I2C2_Init();
 	AccInit();
 	uint32_t tick = 0u;
 	uint32_t prev_total_time = 0u;
@@ -357,7 +357,7 @@ static void ControllerInfoTask(void *args) {
 							                      - prev_idle_time;
 							prev_idle_time = s_task_status[i].ulRunTimeCounter;
 							go_board_cpu_load = (uint8_t)(100u
-							    - (uint8_t)((idle_delta * 100UL) / total_delta));
+							    - (uint8_t)(((uint64_t)idle_delta * 100ULL) / total_delta));
 							break;
 						}
 					}

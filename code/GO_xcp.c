@@ -54,6 +54,7 @@
 
 #include "Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h"
 #include "cmsis_os2.h"
+#include "GO_communication_can.h"
 #elif defined(GOCONTROLL_LINUX)
 
 #include <arpa/inet.h>
@@ -172,6 +173,7 @@ void					   *XcpConnection_fd;
 static uint8_t				xcpTransmissionBus = 0;
 
 osMessageQueueId_t xcp_received;
+static osSemaphoreId_t s_daq_semaphore = NULL;
 
 /****************************************************************************************/
 
@@ -185,9 +187,12 @@ void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs)
 	if (RxFifo1ITs & FDCAN_IT_RX_FIFO1_NEW_MESSAGE) {
 		FDCAN_RxHeaderTypeDef header;
 		struct can_frame message;
+		uint8_t ch = (hfdcan->Instance == FDCAN1) ? 1u : 2u;
 		while (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO1, &header, message.data) ==
 			   HAL_OK) {
 			GO_communication_can_pack_header(&message, &header);
+			can_busload_count_frame(ch, message.flags & CAN_PACKED_DLC,
+			                        (message.flags & CAN_PACKED_EXTID) != 0u);
 			osMessageQueuePut(xcp_received, &message, 0, 0);
 		}
 	}
@@ -237,6 +242,7 @@ void GO_xcp_init_can(FDCAN_HandleTypeDef *can_channel,
 		err("Could not config filter: 0x%x\n", can_channel->ErrorCode);
 
 	xcp_received = osMessageQueueNew(10, sizeof(struct can_frame), NULL);
+	s_daq_semaphore = osSemaphoreNew(1, 0, NULL);
 
 	if (HAL_FDCAN_RegisterRxFifo1Callback(can_channel, HAL_FDCAN_RxFifo1Callback) != HAL_OK)
 		err("Could not register FIFO1 callback: 0x%x\n", can_channel->ErrorCode);
@@ -256,7 +262,8 @@ void GO_xcp_thread_can(void *args) {
 	struct can_frame message;
 
 	while (1) {
-		if (!osMessageQueueGet(xcp_received, &message, 0, osWaitForever)) {
+		/* Wait up to 1 ms for an incoming CAN frame */
+		if (!osMessageQueueGet(xcp_received, &message, 0, 1)) {
 			dbg("received CAN message, dlc: %d, id: %x\ndata: [",
 				GO_communication_can_packed_dlc(&message), message.id);
 			for (int i = 0; i < GO_communication_can_packed_dlc(&message); i++) {
@@ -268,6 +275,23 @@ void GO_xcp_thread_can(void *args) {
 			XcpCommunicationHandling(message.data, GO_communication_can_packed_dlc(&message),
 									 dataToSend);
 		}
+
+		/* If model_step triggered a DAQ transmission, send it now */
+		if (osSemaphoreAcquire(s_daq_semaphore, 0) == osOK) {
+			XcpDataTransmission();
+		}
+	}
+}
+
+/**************************************************************************************
+** \brief     Trigger DAQ data transmission from the model step context.
+**            The actual transmission is deferred to the XCP task to avoid
+**            blocking model_step with per-frame CAN delays.
+** \return    none
+***************************************************************************************/
+void GO_xcp_trigger_daq(void) {
+	if (s_daq_semaphore != NULL) {
+		osSemaphoreRelease(s_daq_semaphore);
 	}
 }
 
@@ -307,6 +331,10 @@ static uint8_t XcpCanSend(uint8_t *data) {
 	header.FDFormat            = FDCAN_CLASSIC_CAN;
 	header.TxEventFifoControl  = FDCAN_NO_TX_EVENTS;
 	header.MessageMarker       = 0;
+	{
+		uint8_t ch = (((FDCAN_HandleTypeDef*)XcpConnection_fd)->Instance == FDCAN1) ? 1u : 2u;
+		can_busload_count_frame(ch, (uint8_t)data[0], xcpDtoIdExt != 0);
+	}
 	if (HAL_FDCAN_AddMessageToTxFifoQ((FDCAN_HandleTypeDef*)XcpConnection_fd, &header, &data[1]) != HAL_OK)
 		return 1;
 	return 0;

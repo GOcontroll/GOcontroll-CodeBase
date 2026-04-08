@@ -186,6 +186,14 @@ void GO_xcp_init_can(FDCAN_HandleTypeDef *can_channel,
 ***************************************************************************************/
 void GO_xcp_thread_can(void *args);
 
+/**************************************************************************************
+** \brief     Trigger DAQ data transmission from the model step context.
+**            The actual transmission is deferred to the XCP task to avoid
+**            blocking model_step with per-frame CAN delays.
+** \return    none
+***************************************************************************************/
+void GO_xcp_trigger_daq(void);
+
 /****************************************************************************************
  * Function prototypes — Linux specific
  ****************************************************************************************/

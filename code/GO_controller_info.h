@@ -81,6 +81,35 @@ void GO_controller_info_set_model_version(uint8_t major, uint8_t minor, uint8_t 
 int GO_controller_info_get_model_version(_modelVersion *ver);
 
 /****************************************************************************************
+ * Application configuration (set once from TLC-generated Start code)
+ ****************************************************************************************/
+
+typedef struct {
+	char    app_id[9];            /* 8-char ASCII application identifier (space-padded) + null */
+	uint8_t signing_enabled;      /* 1 = future updates must be signed, 0 = unsigned accepted */
+	uint8_t public_key[65];       /* ECDSA P-256 public key uncompressed (0x04||X||Y, 65 bytes); zeroed if signing off */
+	char    distribution_url[257];/* Base URL where firmware manifests are hosted */
+	uint8_t latest_only;       /* 1 = app only offers the latest firmware version, 0 = all versions selectable */
+} _appConfig;
+
+/**************************************************************************************
+** \brief     Store the application configuration (called from TLC-generated Start code).
+** \param     app_id     8-character ASCII application identifier, space-padded (null-terminated).
+** \param     signing    1 to require signed future updates, 0 for unsigned.
+** \param     public_key 32-byte Ed25519 public key; may be NULL or all-zero if signing is off.
+** \param     url        Base distribution URL (null-terminated, max 256 chars).
+***************************************************************************************/
+void GO_controller_info_set_app_config(const char *app_id, uint8_t signing,
+                                        const uint8_t *public_key, const char *url,
+                                        uint8_t latest_only);
+
+/**************************************************************************************
+** \brief     Retrieve a pointer to the stored application configuration.
+** \return    Pointer to the internal _appConfig struct (read-only).
+***************************************************************************************/
+const _appConfig *GO_controller_info_get_app_config(void);
+
+/****************************************************************************************
  * RTC time
  ****************************************************************************************/
 

@@ -40,7 +40,7 @@
 #include "GO_board.h"
 #include "GO_controller_info.h"
 #include "GO_communication_can.h"
-#include "SEGGER_RTT.h"
+
 /*==============================================================================================
 ** CRC-16/CCITT — polynomial 0x1021, init 0xFFFF, MSB-first, no reflection.
 ** Applied over: MSG_ID + LEN_LO + LEN_HI + PAYLOAD bytes.
@@ -68,7 +68,15 @@ static uint16_t Crc16(const uint8_t *data, size_t len)
 ** Module-level state
 ==============================================================================================*/
 
-static UART_HandleTypeDef *s_huart = NULL;
+static UART_HandleTypeDef *s_huart   = NULL;
+static volatile uint8_t    s_tx_busy = 0u;
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart == s_huart) {
+        s_tx_busy = 0u;
+    }
+}
 
 /* MQTT subscription registry */
 #define ESPIF_MQTT_SUB_MAX  8u
@@ -111,8 +119,8 @@ static uint8_t   s_rx_payload[ESPIF_MAX_PAYLOAD_LEN];
 static void SendFrame(uint8_t msg_id, const uint8_t *payload, uint16_t len)
 {
     if (s_huart == NULL || len > ESPIF_MAX_PAYLOAD_LEN) { return; }
+    if (s_tx_busy) { return; }   /* previous frame still transmitting — drop */
 
-    /* Static TX buffer — HAL_UART_Transmit is blocking so no re-entrancy issue. */
     static uint8_t s_tx_buf[ESPIF_FRAME_OVERHEAD + ESPIF_MAX_PAYLOAD_LEN];
     uint16_t n = 0u;
 
@@ -133,7 +141,10 @@ static void SendFrame(uint8_t msg_id, const uint8_t *payload, uint16_t len)
     s_tx_buf[n++] = (uint8_t)(crc & 0xFFu);
     s_tx_buf[n++] = (uint8_t)(crc >> 8u);
 
-    HAL_UART_Transmit(s_huart, s_tx_buf, n, 100u);
+    s_tx_busy = 1u;
+    if (HAL_UART_Transmit_IT(s_huart, s_tx_buf, n) != HAL_OK) {
+        s_tx_busy = 0u;
+    }
 }
 
 static void SendAck(uint8_t msg_id)
@@ -362,7 +373,7 @@ void GO_communication_esp_send_static_info(void)
     EspInterface_StaticInfo_t info;
     _moduleInfo mod;
     _modelVersion ver;
-SEGGER_RTT_printf(0, "Send serial info\n");
+
     if (GO_controller_info_get_module_info(0, &mod) == 0)
     {
 		
@@ -396,9 +407,37 @@ SEGGER_RTT_printf(0, "Send serial info\n");
     info.app_minor = ver.minor;
     info.app_patch = ver.patch;
 	
-	SEGGER_RTT_printf(0, "SModule Patch: %d\n",info.app_patch );
+
 
     SendFrame(ESPIF_MSG_STATIC_INFO, (const uint8_t *)&info, sizeof(info));
+}
+
+/**************************************************************************************
+** \brief     Gather application configuration and send an ESPIF_MSG_APP_CONFIG frame.
+**            Call once after startup, immediately after send_static_info.
+** \return    none
+***************************************************************************************/
+void GO_communication_esp_send_app_config(void)
+{
+    const _appConfig *cfg = GO_controller_info_get_app_config();
+
+    uint8_t url_len = (uint8_t)strnlen(cfg->distribution_url, 255u);
+
+    uint16_t payload_len = (uint16_t)(sizeof(EspInterface_AppConfig_t) + url_len);
+    uint8_t  payload[sizeof(EspInterface_AppConfig_t) + 256u];
+
+    EspInterface_AppConfig_t *hdr = (EspInterface_AppConfig_t *)payload;
+    memcpy(hdr->app_id, cfg->app_id, 8u);
+    hdr->signing_enabled = cfg->signing_enabled;
+    memcpy(hdr->public_key, cfg->public_key, 65u);
+    hdr->latest_only = cfg->latest_only;
+    hdr->url_len = url_len;
+    if (url_len > 0u) {
+        memcpy(payload + sizeof(EspInterface_AppConfig_t),
+               cfg->distribution_url, url_len);
+    }
+
+    SendFrame(ESPIF_MSG_APP_CONFIG, payload, payload_len);
 }
 
 /**************************************************************************************
@@ -423,8 +462,8 @@ void GO_communication_esp_send_cyclic_info(void)
     info.temperature_x10 = (int16_t)(imu.temp * 10.0f);
     info.can1_bitrate    = can_get_esp_bitrate(1u);
     info.can2_bitrate    = can_get_esp_bitrate(2u);
-    info.can1_busload    = 0u; /* bus load measurement not yet implemented */
-    info.can2_busload    = 0u;
+    info.can1_busload    = can_get_busload(1u);
+    info.can2_busload    = can_get_busload(2u);
     info.accel_x         = (int16_t)imu.acc_x;
     info.accel_y         = (int16_t)imu.acc_y;
     info.accel_z         = (int16_t)imu.acc_z;
@@ -730,7 +769,6 @@ __attribute__((weak)) void GO_communication_esp_on_time_sync(
     uint16_t year, uint8_t month, uint8_t day,
     uint8_t hour, uint8_t minute, uint8_t second)
 {
-	SEGGER_RTT_printf(0, "Time Sync: %d\n",year);
     RTC_TimeTypeDef sTime = {0};
     RTC_DateTypeDef sDate = {0};
     sTime.Hours          = hour;

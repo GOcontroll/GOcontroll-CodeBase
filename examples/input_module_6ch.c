@@ -19,6 +19,25 @@
  *           - Supply 2 : INPUTSENSSUPPLYOFF
  *           - Supply 3 : INPUTSENSSUPPLYOFF
  *
+ *         Initialisation order (must be respected):
+ *           1. GO_board_get_hardware_version()
+ *           2. GO_module_input_set_module_type()
+ *           3. GO_communication_modules_initialize()    ← populates moduleOccupancy
+ *           4. GO_module_input_set_module_slot()        ← verifies module type in slot
+ *           5. GO_module_input_6ch_configure_supply()   ← supply before channels
+ *           6. GO_module_input_6ch_configure_channel()  ← once per channel
+ *           7. GO_module_input_configuration()          ← send config to hardware
+ *           8. GO_board_exit_program()
+ *
+ *         NOTE: GO_communication_modules_initialize() must be called before
+ *         GO_module_input_set_module_slot(). The initialize call populates
+ *         hardwareConfig.moduleOccupancy; set_module_slot reads this data to
+ *         verify that the correct module type is physically present in the slot.
+ *         Reversing the order produces a "contested slot" error at runtime.
+ *
+ *         The measured value of each channel is available in millivolts via
+ *         inputModule.value[channel] after calling GO_module_input_receive_values().
+ *
  *         This example demonstrates:
  *           - Setting up a 6-channel input module (type, slot, channel config)
  *           - Configuring the per-channel voltage range and analogue filter
@@ -26,9 +45,6 @@
  *           - Reading channel values in the application loop
  *           - Printing all channels at a reduced rate (once per second)
  *           - Clean shutdown on SIGTERM / SIGINT (Ctrl+C)
- *
- *         Build:
- *           make input_module_6ch
  **************************************************************************************/
 
 #include <stdint.h>
@@ -67,34 +83,49 @@ int main(void)
 	info("Slot 1 | Function: analog mV | Range: 24 V | Pull-up: 10 kΩ | Filter: 10 samples\n");
 	info("All 6 channels printed once per second. Press Ctrl+C to stop.\n\n");
 
-	/* Detect the hardware variant (required before any module function). */
+	/* 1. Detect the hardware variant (required before any module function). */
 	GO_board_get_hardware_version();
 
 	/* --- Module setup ---------------------------------------------------- */
 
-	/* Assign module type and slot.
-	 * INPUTMODULE6CHANNEL selects the 6-channel variant.
-	 * The slot index matches the physical slot on the controller (MODULESLOT1 = slot 1). */
+	/* 2. Assign module type.
+	 *    INPUTMODULE6CHANNEL selects the 6-channel variant. */
 	GO_module_input_set_module_type(&inputModule, INPUTMODULE6CHANNEL);
-	GO_module_input_set_module_slot(&inputModule, MODULESLOT1);
 
-	/* Initialise the SPI communication for this slot. */
+	/* 3. Initialise the SPI communication for this slot.
+	 *    Must be called before set_module_slot: it populates
+	 *    hardwareConfig.moduleOccupancy, which set_module_slot uses to
+	 *    verify that the correct module type is physically present. */
 	GO_communication_modules_initialize(MODULESLOT1);
 
-	/* Configure all 6 channels identically.
+	/* 4. Assign slot — verified against the module occupancy data.
+	 *    The slot index matches the physical slot on the controller. */
+	GO_module_input_set_module_slot(&inputModule, MODULESLOT1);
+
+	/* 5. Configure the three independent sensor supply outputs.
+	 *    Each supply provides a 5 V output to power external sensors.
+	 *    Enable only the supplies that are wired to a sensor.
+	 *    Must be configured before GO_module_input_configuration() so that
+	 *    the supply state is included in the first configuration frame. */
+	GO_module_input_6ch_configure_supply(&inputModule,
+	                                     INPUTSENSSUPPLYON,   /* supply 1 — active */
+	                                     INPUTSENSSUPPLYOFF,  /* supply 2 — inactive */
+	                                     INPUTSENSSUPPLYOFF); /* supply 3 — inactive */
+
+	/* 6. Configure all 6 channels identically.
 	 *
-	 * GO_module_input_6ch_configure_channel() takes more parameters than the
-	 * 10-channel equivalent:
+	 *    GO_module_input_6ch_configure_channel() takes more parameters than the
+	 *    10-channel equivalent:
 	 *
-	 *   func                  — measurement function (INPUTFUNC_*)
-	 *   voltage_range         — full-scale range: INPUTVOLTAGERANGE_5V / 12V / 24V
-	 *   pull_up               — pull-up resistor: INPUTPULLUP6CH_3_3K / 4_7K / 10K
-	 *   pull_down             — pull-down resistor: INPUTPULLDOWN6CH_3_3K / 4_7K / 10K
-	 *   pulses_per_rotation   — encoder PPR for INPUTFUNC_RPM; set 0 for analogue
-	 *   analog_filter_samples — ADC averaging depth (0 = no filter, 1000 = max filter)
+	 *      func                  — measurement function (INPUTFUNC_*)
+	 *      voltage_range         — full-scale range: INPUTVOLTAGERANGE_5V / 12V / 24V
+	 *      pull_up               — pull-up resistor: INPUTPULLUP6CH_3_3K / 4_7K / 10K
+	 *      pull_down             — pull-down resistor: INPUTPULLDOWN6CH_3_3K / 4_7K / 10K
+	 *      pulses_per_rotation   — encoder PPR for INPUTFUNC_RPM; set 0 for analogue
+	 *      analog_filter_samples — ADC averaging depth (0 = no filter, 1000 = max filter)
 	 *
-	 * Use the INPUTPULLUP6CH_* / INPUTPULLDOWN6CH_* macros for this module type.
-	 * The INPUTPULLUP10CH_* / INPUTPULLDOWN10CH_* macros are for the 10-channel module. */
+	 *    Use the INPUTPULLUP6CH_* / INPUTPULLDOWN6CH_* macros for this module type.
+	 *    The INPUTPULLUP10CH_* / INPUTPULLDOWN10CH_* macros are for the 10-channel module. */
 	for (uint8_t ch = INPUTCHANNEL1; ch <= INPUTCHANNEL6; ch++) {
 		GO_module_input_6ch_configure_channel(&inputModule, ch,
 		                                      INPUTFUNC_MVANALOG,
@@ -105,22 +136,14 @@ int main(void)
 		                                      10); /* analog_filter_samples */
 	}
 
-	/* Configure the three independent sensor supply outputs.
-	 * Each supply provides a 5 V output to power external sensors.
-	 * Enable only the supplies that are wired to a sensor. */
-	GO_module_input_6ch_configure_supply(&inputModule,
-	                                     INPUTSENSSUPPLYON,   /* supply 1 — active */
-	                                     INPUTSENSSUPPLYOFF,  /* supply 2 — inactive */
-	                                     INPUTSENSSUPPLYOFF); /* supply 3 — inactive */
-
-	/* Send the full configuration to the module over SPI.
-	 * Must be called once after all channels and supplies are configured and
-	 * before the first GO_module_input_receive_values() call. */
+	/* 7. Send the full configuration to the module over SPI.
+	 *    Must be called once after all channels and supplies are configured and
+	 *    before the first GO_module_input_receive_values() call. */
 	GO_module_input_configuration(&inputModule);
 
 	info("Module configured and communication initialised\n\n");
 
-	/* Register the shutdown callback for SIGTERM and SIGINT. */
+	/* 8. Register the shutdown callback for SIGTERM and SIGINT. */
 	GO_board_exit_program(app_terminate);
 
 	/* --- Application loop (10 ms cycle) ---------------------------------- */

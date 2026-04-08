@@ -1,9 +1,9 @@
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
-  * @file    i2c.h
+  * @file    usb.h
   * @brief   This file contains all the function prototypes for
-  *          the i2c.c file
+  *          the usb.c file
   ******************************************************************************
   * @attention
   *
@@ -18,8 +18,8 @@
   */
 /* USER CODE END Header */
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __I2C_H__
-#define __I2C_H__
+#ifndef __USB_H__
+#define __USB_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,16 +32,13 @@ extern "C" {
 
 /* USER CODE END Includes */
 
-extern I2C_HandleTypeDef hi2c2;
-
-extern SMBUS_HandleTypeDef hsmbus3;
+extern HCD_HandleTypeDef hhcd_USB_DRD_FS;
 
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
 
-void MX_I2C2_Init(void);
-void MX_I2C3_SMBUS_Init(void);
+void MX_USB_HCD_Init(void);
 
 /* USER CODE BEGIN Prototypes */
 
@@ -51,5 +48,5 @@ void MX_I2C3_SMBUS_Init(void);
 }
 #endif
 
-#endif /* __I2C_H__ */
+#endif /* __USB_H__ */
 
