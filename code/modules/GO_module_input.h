@@ -38,6 +38,10 @@
  ****************************************************************************************/
 #include "GO_communication_modules.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /****************************************************************************************
  * Module specific defines
  ****************************************************************************************/
@@ -217,5 +221,9 @@ int GO_module_input_6ch_configure_supply(_inputModule* inputModule, uint8_t supp
 ***************************************************************************************/
 int GO_module_input_10ch_configure_supply(_inputModule* inputModule, uint8_t supply1,
 								     uint8_t supply2);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GO_MODULE_INPUT_H */

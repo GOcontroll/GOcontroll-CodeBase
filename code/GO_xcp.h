@@ -77,6 +77,10 @@
 #include <stdio.h>
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /****************************************************************************************
  * XCP memory allocation strategy
  ****************************************************************************************/
@@ -221,6 +225,10 @@ void *GO_xcp_initialize_udp(void *aArgument);
 void *GO_xcp_initialize_can(void *aArgument);
 
 #endif /* GOCONTROLL_IOT */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GO_XCP_H */
 

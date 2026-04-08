@@ -38,6 +38,10 @@
  ****************************************************************************************/
 #include "GO_communication_modules.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /****************************************************************************************
  * Module specific defines
  ****************************************************************************************/
@@ -215,5 +219,9 @@ int GO_module_output_10ch_configure_channel(_outputModule* outputModule,
 ***************************************************************************************/
 int GO_module_output_configure_frequency(_outputModule* outputModule,
 									uint8_t channel, uint8_t frequency);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GO_MODULE_OUTPUT_H */

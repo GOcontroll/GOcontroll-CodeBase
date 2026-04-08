@@ -34,6 +34,10 @@
 #ifndef GO_COMMUNICATION_ESP_H
 #define GO_COMMUNICATION_ESP_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /****************************************************************************************
 * IoT platform only (STM32H)
 ****************************************************************************************/
@@ -362,5 +366,9 @@ void GO_communication_esp_on_gps_data(const EspInterface_GpsData_t *gps);
 void GO_communication_esp_on_modem_status(uint8_t state, const char *ip);
 
 #endif /* GOCONTROLL_IOT */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GO_COMMUNICATION_ESP_H */

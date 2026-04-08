@@ -39,6 +39,10 @@
  ****************************************************************************************/
 #include "GO_communication_modules.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /****************************************************************************************
  * Module specific defines
  ****************************************************************************************/
@@ -77,5 +81,9 @@ int GO_module_input_420ma_configuration(_inputModule420ma* inputModule420ma);
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
 int GO_module_input_420ma_receive_values(_inputModule420ma* inputModule420ma);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GO_MODULE_INPUT_420MA_H */

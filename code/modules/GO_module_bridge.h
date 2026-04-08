@@ -56,6 +56,10 @@
  ****************************************************************************************/
 #include "GO_communication_modules.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /****************************************************************************************
  * Data declarations
  ****************************************************************************************/
@@ -112,5 +116,9 @@ int GO_module_bridge_set_module_slot(_bridgeModule* bridgeModule, uint8_t module
 ***************************************************************************************/
 int GO_module_bridge_configure_channel(_bridgeModule* bridgeModule, uint8_t channel,
 								  uint8_t func, uint8_t freq);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GO_MODULE_BRIDGE_H */

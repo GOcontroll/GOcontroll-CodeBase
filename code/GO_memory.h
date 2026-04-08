@@ -43,6 +43,10 @@
  ****************************************************************************************/
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /****************************************************************************************
  * Macro definitions — MemoryDiagnostic message types
  ****************************************************************************************/
@@ -138,6 +142,10 @@ uint32_t GO_memory_diagnostic_code_on_index(uint16_t index);
 ** \return    none
 ***************************************************************************************/
 void GO_memory_diagnostic_delete_single(uint32_t spn, uint8_t fmi, uint8_t oc);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GO_MEMORY_H */
 

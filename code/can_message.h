@@ -38,6 +38,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**************************************************************************************
  * \brief CAN message as exchanged between Simulink blocks and the underlying driver.
  *
@@ -55,6 +59,10 @@ typedef struct {
 	uint8_t  Length;
 	uint8_t  Data[8];
 } CAN_DATATYPE;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* CAN_MESSAGE_H */
 

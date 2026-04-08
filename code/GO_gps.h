@@ -35,6 +35,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct gps_data {
 	float    longitude;
 	float    latitude;
@@ -67,4 +71,8 @@ void GO_gps_read(struct gps_data *out);
 ** \return    none
 ***************************************************************************************/
 void GO_gps_terminate(void);
+
+#ifdef __cplusplus
+}
+#endif
 

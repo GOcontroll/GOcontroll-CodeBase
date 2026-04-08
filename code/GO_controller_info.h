@@ -36,6 +36,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /****************************************************************************************
  * Module information
  ****************************************************************************************/
@@ -156,3 +160,7 @@ uint32_t GO_controller_info_get_free_heap(void);
 ** \return    CPU load percentage (IoT only; returns 0 on Linux).
 ***************************************************************************************/
 uint8_t GO_controller_info_get_cpu_load(void);
+
+#ifdef __cplusplus
+}
+#endif

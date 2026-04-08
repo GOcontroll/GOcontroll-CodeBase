@@ -43,6 +43,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /****************************************************************************************
  * Data declarations
  ****************************************************************************************/
@@ -231,6 +235,10 @@ void GO_board_controller_info_task_start(void);
 ** \return    none.
 ***************************************************************************************/
 void GO_board_controller_info_get_data(GOcontrollControllerInfo_t *out);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GO_BOARD_H */
 

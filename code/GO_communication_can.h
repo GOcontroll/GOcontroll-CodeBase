@@ -33,6 +33,10 @@
 #ifndef GO_COMMUNICATION_CAN_H
 #define GO_COMMUNICATION_CAN_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /****************************************************************************************
 * IoT platform (STM32 FDCAN via HAL)
 ****************************************************************************************/
@@ -303,5 +307,9 @@ int GO_communication_can_update_receive_buffer(canid_t oldCANid, uint8_t canInte
 int GO_communication_can_serve_connection(void);
 
 #endif /* GOCONTROLL_LINUX */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GO_COMMUNICATION_CAN_H */

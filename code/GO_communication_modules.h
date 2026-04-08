@@ -44,6 +44,10 @@
 #include <stdint.h>
 #include "GO_board.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /****************************************************************************************
  * Macro definitions (Message lengths)
  ****************************************************************************************/
@@ -191,6 +195,10 @@ int GO_communication_modules_send_receive_spi(uint8_t command, uint8_t dataLengt
 void GO_communication_modules_delay_1ms_os(uint32_t times);
 
 #endif /* GOCONTROLL_IOT */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GO_COMMUNICATION_MODULES_H */
 

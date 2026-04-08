@@ -44,6 +44,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*==============================================================================================
 ** Connection status values — returned via GO_communication_mqtt_on_status().
 ==============================================================================================*/
@@ -154,5 +158,9 @@ void GO_communication_mqtt_unsubscribe(const char *topic);
  * \param  status  GO_MQTT_STATUS_DISCONNECTED / _CONNECTING / _CONNECTED.
  **************************************************************************************/
 void GO_communication_mqtt_on_status(uint8_t status);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GO_COMMUNICATION_MQTT_H */

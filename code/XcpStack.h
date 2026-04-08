@@ -78,6 +78,10 @@ and checksum)
  ****************************************************************************************/
 #include "stdint.h"	 //For data types: uint8_t, uint16_t, uint32_t
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /****************************************************************************************
  * typedefs for the XcpStack
  ****************************************************************************************/
@@ -133,6 +137,10 @@ void XcpCommunicationHandling(uint8_t *dataReceived, uint32_t receivedLength,
 ** \return    none.
 ****************************************************************************************/
 void XcpDataTransmission(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 /* End of XcpStack.h */

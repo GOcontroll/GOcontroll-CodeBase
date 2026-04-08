@@ -50,6 +50,10 @@
  ****************************************************************************************/
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /****************************************************************************************
  * Macro definitions
  ****************************************************************************************/
@@ -160,6 +164,10 @@ int GO_communication_lin_master_retrieve_data(uint8_t id, uint8_t dataLength,
 ***************************************************************************************/
 int GO_communication_lin_master_send_data(uint8_t id, uint8_t dataLength,
                                       uint8_t data[], uint8_t checksum);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GO_COMMUNICATION_LIN_H */
 
