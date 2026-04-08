@@ -207,12 +207,15 @@ int GO_module_input_6ch_configure_supply(_inputModule* inputModule, uint8_t supp
 								   uint8_t supply2, uint8_t supply3);
 
 /**************************************************************************************
-** \brief     Configures the sensor supply output on a 10-channel input module.
+** \brief     Configures the sensor supply outputs on a 10-channel input module.
 ** \param     inputModule  Pointer to a _inputModule struct that holds the
 **                         relevant module configuration.
-** \param     supply1      State of the sensor supply (use INPUTSENSSUPPLYON or INPUTSENSSUPPLYOFF).
+** \param     supply1      State of sensor supply 1 (use INPUTSENSSUPPLYON or INPUTSENSSUPPLYOFF).
+** \param     supply2      State of sensor supply 2 (use INPUTSENSSUPPLYON or INPUTSENSSUPPLYOFF).
+**                         Only active on modules with firmware version >= VERSIONSECONDSUPPLY_10CHANNELIN.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
-int GO_module_input_10ch_configure_supply(_inputModule* inputModule, uint8_t supply1, uint8_t supply2);
+int GO_module_input_10ch_configure_supply(_inputModule* inputModule, uint8_t supply1,
+								     uint8_t supply2);
 
 #endif /* GO_MODULE_INPUT_H */

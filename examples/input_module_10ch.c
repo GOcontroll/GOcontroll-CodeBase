@@ -4,14 +4,19 @@
  *
  *         Each channel is configured as:
  *           - Function  : analog mV resolution (INPUTFUNC_MVANALOG)
- *           - Pull-up   : 3.3 kΩ (INPUTPULLUP_3_3K)
- *           - Pull-down : 3.3 kΩ (INPUTPULLDOWN_3_3K)
+ *           - Pull-up   : 10 kΩ (INPUTPULLUP10CH_10K)
+ *           - Pull-down : 3.3 kΩ (INPUTPULLDOWN10CH_3_3K)
+ *
+ *         Sensor supply:
+ *           - Supply 1 : INPUTSENSSUPPLYON  (5 V output)
+ *           - Supply 2 : INPUTSENSSUPPLYON  (5 V output)
  *
  *         The measured value of each channel is available in millivolts via
  *         inputModule.value[channel] after calling GO_module_input_receive_values().
  *
  *         This example demonstrates:
  *           - Setting up a 10-channel input module (type, slot, channel config)
+ *           - Enabling the 5 V sensor supply outputs
  *           - Sending the configuration to the module hardware
  *           - Reading channel values in the application loop
  *           - Printing all channels at a reduced rate (once per second)
@@ -84,8 +89,16 @@ int main(void)
 											   INPUTPULLDOWN10CH_3_3K);
 	}
 
+	/* Enable both 5 V sensor supply outputs.
+	 * Must be called before GO_module_input_configuration() so the supply state
+	 * is included in the first configuration frame sent to the module.
+	 * Supply 2 is only active on modules with firmware >= VERSIONSECONDSUPPLY_10CHANNELIN. */
+	GO_module_input_10ch_configure_supply(&inputModule,
+	                                      INPUTSENSSUPPLYON,   /* supply 1 — active */
+	                                      INPUTSENSSUPPLYON);  /* supply 2 — active */
+
 	/* Send the full configuration to the module over SPI.
-	 * Must be called once after all channels are configured and before
+	 * Must be called once after all channels and supplies are configured and before
 	 * the first GO_module_input_receive_values() call. */
 	GO_module_input_configuration(&inputModule);
 
