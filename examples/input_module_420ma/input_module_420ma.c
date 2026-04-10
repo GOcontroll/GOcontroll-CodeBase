@@ -67,7 +67,7 @@ static void app_terminate(void)
 int main(void)
 {
 	info("=== 4-20 mA input module example ===\n");
-	info("Slot 1 | 10 channels | Values printed once per second.\n");
+	info("Slot 2 | 10 channels | Values printed once per second.\n");
 	info("Press Ctrl+C to stop.\n\n");
 
 	/* Detect the hardware variant (required before any module function). */
@@ -78,15 +78,22 @@ int main(void)
 	/* Assign the module to its physical slot.
 	 * The 4-20 mA module does not have a set_module_type function —
 	 * the slot is written directly to the struct. */
-	inputModule420ma.moduleSlot = MODULESLOT1;
+	inputModule420ma.moduleSlot = MODULESLOT2;
 
 	/* Initialise SPI communication for this slot. */
-	GO_communication_modules_initialize(MODULESLOT1);
+	GO_communication_modules_initialize(MODULESLOT2);
 
 	/* Enable all 10 channels by setting configuration to 1.
 	 * A value of 0 disables the channel. */
 	for (uint8_t ch = 0; ch < NUM_CHANNELS; ch++) {
 		inputModule420ma.configuration[ch] = 1;
+	}
+
+	/* Enable all sensor supplies.
+	 * supply16ch[0..4] each control a channel pair (CH1&2, CH3&4, ..., CH9&10).
+	 * A value of 1 enables the 24 V loop supply for that pair. */
+	for (uint8_t i = 0; i < 5; i++) {
+		inputModule420ma.supply16ch[i] = 1;
 	}
 
 	/* Send the full configuration to the module over SPI.
