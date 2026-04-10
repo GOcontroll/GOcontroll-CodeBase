@@ -78,7 +78,23 @@
 
 
 
-#include "SYS_config.h"
+#ifdef __has_include
+#  if __has_include("SYS_config.h")
+#    include "SYS_config.h"
+#  endif
+#else
+#  include "SYS_config.h"
+#endif
+
+#ifndef XCP_PORT_NUM
+#  define XCP_PORT_NUM         17725
+#endif
+#ifndef kXcpStationIdString
+#  define kXcpStationIdString  "GOcontroll-App"
+#endif
+#ifndef kXcpStationIdLength
+#  define kXcpStationIdLength  (sizeof(kXcpStationIdString) - 1u)
+#endif
 
 #endif /* GOCONTROLL_IOT / GOCONTROLL_LINUX */
 
