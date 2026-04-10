@@ -21,7 +21,7 @@
  *         The module provides per-channel current feedback and overall temperature.
  *         These are available after each GO_module_output_send_values() call in:
  *           outputModule.current[ch]   — measured channel current (mA)
- *           outputModule.temperature   — module PCB temperature (°C × 10)
+ *           outputModule.temperature   — module PCB temperature (°C)
  *
  *         This example demonstrates:
  *           - Setting up a 6-channel output module (type, slot, channel config)
@@ -74,11 +74,13 @@ static _outputModule outputModule;
  * ------------------------------------------------------------------------- */
 static void app_terminate(void)
 {
-	info("Shutting down — turning all outputs off\n");
+	info("Shutting down — disabling all channels (floating)\n");
 	for (uint8_t ch = OUTPUTCHANNEL1; ch <= OUTPUTCHANNEL6; ch++) {
-		outputModule.value[ch] = 0;
+		GO_module_output_6ch_configure_channel(&outputModule, ch,
+		                                       OUTPUTFUNC_DISABLED,
+		                                       0, 0, 0);
 	}
-	GO_module_output_send_values(&outputModule);
+	GO_module_output_configuration(&outputModule);
 }
 
 /* -------------------------------------------------------------------------
@@ -95,13 +97,15 @@ int main(void)
 
 	/* --- Module setup ---------------------------------------------------- */
 
-	/* Set module type and slot.
-	 * OUTPUTMODULE6CHANNEL selects the 6-channel variant. */
+	/* Set module type, initialise SPI, then assign slot.
+	 * IMPORTANT: GO_communication_modules_initialize() must be called before
+	 * GO_module_output_set_module_slot(). The initialize call populates
+	 * hardwareConfig.moduleOccupancy; set_module_slot reads this data to
+	 * verify that the correct module type is physically present in the slot.
+	 * Reversing the order produces a "contested slot" error at runtime. */
 	GO_module_output_set_module_type(&outputModule, OUTPUTMODULE6CHANNEL);
-	GO_module_output_set_module_slot(&outputModule, OUTPUT_SLOT);
-
-	/* Initialise SPI communication for this slot. */
 	GO_communication_modules_initialize(OUTPUT_SLOT);
+	GO_module_output_set_module_slot(&outputModule, OUTPUT_SLOT);
 
 	/* Configure CH1–CH4 as high-side boolean outputs.
 	 *
@@ -190,7 +194,7 @@ int main(void)
 		/* Print status once per second (100 cycles × 10 ms). */
 		if (++print_cyc >= 100) {
 			print_cyc = 0;
-			info("CH%d ON | duty %4u/1000 | curr CH1:%4dmA CH2:%4dmA CH3:%4dmA CH4:%4dmA CH5:%4dmA CH6:%4dmA | temp %d.%d°C\n",
+			info("CH%d ON | duty %4u/1000 | curr CH1:%4dmA CH2:%4dmA CH3:%4dmA CH4:%4dmA CH5:%4dmA CH6:%4dmA | temp %d°C\n",
 			     active_ch + 1,
 			     duty,
 			     outputModule.current[OUTPUTCHANNEL1],
@@ -199,8 +203,7 @@ int main(void)
 			     outputModule.current[OUTPUTCHANNEL4],
 			     outputModule.current[OUTPUTCHANNEL5],
 			     outputModule.current[OUTPUTCHANNEL6],
-			     outputModule.temperature / 10,
-			     outputModule.temperature % 10);
+			     outputModule.temperature);
 		}
 
 		usleep(CYCLE_US);
