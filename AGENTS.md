@@ -20,7 +20,7 @@ Top-level layout:
 ```
 code/        Public C library — board, communication, modules, XCP, S1 subtree
 examples/    Self-contained main()s, one per topic (Linux only at present)
-lib/         Vendored third-party (IIO, JSON-C, OAES) — do not modify
+lib/         Vendored third-party (IIO, JSON-C) — do not modify
 ```
 
 ---
@@ -112,8 +112,6 @@ The source-of-truth lives in:
 - **All voltages read 0 mV** → ADC thread not started. See rule 6.
 - **First read returns zeros** → `*_configure_channel` ran after `*_configuration()`.
   See rule 4.
-- **License verify killed the process** → `GO_board_verify_license()` calls
-  `exit()` on failure; not recoverable from the caller.
 - **Output module suddenly disables all outputs** → application loop period
   exceeded 400 ms; the module's own watchdog dropped to fail-safe. See rule 8.
 - **CAN bus stops after one bus-off** → recovery only happens when

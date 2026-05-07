@@ -468,9 +468,6 @@ void GO_board_controller_info_get_data(GOcontrollControllerInfo_t *out) {
 
 #include "GO_xcp.h"
 #include "GO_communication_modules.h"
-#include "oaes_base64.h"
-#include "oaes_common.h"
-#include "oaes_lib.h"
 
 extern _hardwareConfig hardwareConfig;
 
@@ -586,128 +583,6 @@ int GO_board_set_screen_brightness(uint8_t brightness,
 			return -EINVAL;
 	}
 	return 0;
-}
-
-
-/**************************************************************************************
-** \brief     Verify the application license using AES decryption (OpenAES).
-**            Exits the process if verification fails.
-** \param     key         16/24/32-byte encryption key
-** \param     _iv_ent     base64-encoded initialisation vector (decodes to 16 bytes)
-** \param     _file_in    path to the encrypted license file
-** \param     _file_check path to the file containing the expected plaintext
-** \param     keyLen      length of the key in bytes (16, 24 or 32)
-** \return    none.
-***************************************************************************************/
-void GO_board_verify_license(uint8_t *key, char _iv_ent[16],
-						   char *_file_in, char *_file_check,
-						   unsigned long keyLen) {
-	typedef struct {
-		unsigned long	in_len;
-		uint8_t			in[4096];
-		unsigned long	out_len;
-		uint8_t			*out;
-		uint8_t			pad;
-	} _do_block;
-
-	_do_block _b;
-	size_t _read_len = 4096;
-	FILE *_f_in = NULL;
-	FILE *_f_check = NULL;
-	uint8_t _iv[OAES_BLOCK_SIZE] = "";
-	size_t _buf_len = 0;
-	uint8_t *_buf = NULL;
-	OAES_RET _rc = OAES_RET_SUCCESS;
-
-	if ((keyLen != 16UL) && (keyLen != 24UL) && (keyLen != 32UL)) {
-		fprintf(stderr,
-				"A key of incorrect length was entered: %lu bytes\n"
-				"Key length can only be 16, 24 or 32 bytes\n",
-				keyLen);
-		exit(-1);
-	}
-
-	OAES_CTX *ctx = oaes_alloc();
-	if (NULL == ctx) {
-		fprintf(stderr, "failed to initialize OAES, exiting.\n");
-		exit(-1);
-	}
-
-	_f_check = fopen(_file_check, "r");
-	if (NULL == _f_check) {
-		fprintf(stderr, "Error: Failed to open license check file.\n");
-		oaes_free(&ctx);
-		exit(-1);
-	}
-	char *_check_buf = NULL;
-	size_t len = 0;
-	getline(&_check_buf, &len, _f_check);
-	fclose(_f_check);
-	if (strchr(_check_buf, '\n')) *strchr(_check_buf, '\n') = 0;
-
-	oaes_base64_decode(_iv_ent, strlen(_iv_ent), NULL, &_buf_len);
-	_buf = (uint8_t *)calloc(_buf_len, sizeof(uint8_t));
-	oaes_base64_decode(_iv_ent, strlen(_iv_ent), _buf, &_buf_len);
-	memcpy(_iv, _buf, __min(OAES_BLOCK_SIZE, _buf_len));
-	for (int _i = OAES_BLOCK_SIZE; _i < (int)_buf_len; _i++)
-		_iv[_i % OAES_BLOCK_SIZE] ^= _buf[_i];
-	free(_buf);
-
-	if (OAES_RET_SUCCESS != oaes_set_option(ctx, OAES_OPTION_CBC, _iv)) {
-		fprintf(stderr, "Error: Failed to set OAES options, invalid IV?\n");
-		oaes_free(&ctx);
-		exit(-1);
-	}
-
-	oaes_key_import_data(ctx, key, keyLen);
-
-	_f_in = fopen(_file_in, "rb");
-	if (NULL == _f_in) {
-		fprintf(stderr, "Error: Failed to open license file.\n");
-		oaes_free(&ctx);
-		exit(-1);
-	}
-
-	while ((_b.in_len = fread(_b.in, sizeof(uint8_t), _read_len, _f_in))) {
-		_b.pad = (_b.in_len < 4096) ? 1 : 0;
-		_b.out = NULL;
-		_b.out_len = 0;
-
-		_rc = oaes_decrypt(ctx, _b.in, _b.in_len, NULL, &(_b.out_len), NULL, 0);
-		if (OAES_RET_SUCCESS != _rc) {
-			fprintf(stderr, "Error: Failed to decrypt (1). Code: %d\n", _rc);
-			oaes_free(&ctx);
-			exit(-1);
-		}
-		_b.out = (uint8_t *)calloc(_b.out_len, sizeof(uint8_t));
-		if (NULL == _b.out) {
-			fprintf(stderr, "Error: Failed to allocate memory.\n");
-			oaes_free(&ctx);
-			exit(-1);
-		}
-		_rc = oaes_decrypt(ctx, _b.in, _b.in_len, _b.out, &(_b.out_len), _iv,
-						   _b.pad);
-		if (OAES_RET_SUCCESS != _rc) {
-			fprintf(stderr, "Error: Failed to decrypt (2). Code: %d\n", _rc);
-			oaes_free(&ctx);
-			free(_b.out);
-			exit(-1);
-		}
-	}
-	fclose(_f_in);
-
-	if (OAES_RET_SUCCESS != oaes_free(&ctx))
-		fprintf(stderr, "Error: Failed to uninitialize OAES.\n");
-
-	if (strchr((char *)_b.out, '\n')) *strchr((char *)_b.out, '\n') = 0;
-
-	if (strcmp((char *)_b.out, _check_buf)) {
-		fprintf(stderr, "License does not match check file. Exiting.\n");
-		free(_b.out);
-		exit(-1);
-	}
-	fprintf(stderr, "license verified!\n");
-	free(_b.out);
 }
 
 

@@ -117,20 +117,6 @@ int GO_board_set_screen_brightness(uint8_t brightness,
 								uint8_t call_type);
 
 /**************************************************************************************
-** \brief     Verify the application license using AES decryption (OpenAES).
-**            Exits the process if verification fails.
-** \param     key         16/24/32-byte encryption key
-** \param     _iv_ent     base64-encoded initialisation vector (decodes to 16 bytes)
-** \param     _file_in    path to the encrypted license file
-** \param     _file_check path to the file containing the expected plaintext
-** \param     keyLen      length of the key in bytes (16, 24 or 32)
-** \return    none.
-***************************************************************************************/
-void GO_board_verify_license(uint8_t *key, char _iv_ent[16],
-						   char *_file_in, char *_file_check,
-						   unsigned long keyLen);
-
-/**************************************************************************************
 ** \brief     Execute a shell command in a child process (non-blocking).
 **            Forks a child process, runs the command via system(), and exits
 **            the child. The parent continues immediately.
