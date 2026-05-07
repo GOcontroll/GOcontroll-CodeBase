@@ -5,8 +5,8 @@
  *         initialisation.
  *
  *         Platform selection via preprocessor define:
- *           GOCONTROLL_IOT  →  STM32H5 (Moduline IOT): TODO
- *           (default)       →  Linux/IMX8 (Moduline IV / Moduline Mini)
+ *           GOCONTROLL_IOT  →  STM32H5 (Moduline S1): TODO
+ *           (default)       →  Linux/IMX8 (Moduline L4 / Moduline M1)
  *
  *         This code is heavily inspired by slLIN prototype code developed by:
  *           Pavel Pisa <pisa@cmp.felk.cvut.cz>

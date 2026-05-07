@@ -4,8 +4,8 @@
  *         Interfaces the XCP stack with the underlying transport (CAN, TCP, UDP).
  *
  *         Platform selection via preprocessor define:
- *           GOCONTROLL_IOT  →  STM32H5 (Moduline IOT): FDCAN via HAL + FreeRTOS
- *           (default)       →  Linux/IMX8 (Moduline IV / Moduline Mini): sockets
+ *           GOCONTROLL_IOT  →  STM32H5 (Moduline S1): FDCAN via HAL + FreeRTOS
+ *           (default)       →  Linux/IMX8 (Moduline L4 / Moduline M1): sockets
  *
  * \internal
  *----------------------------------------------------------------------------------------

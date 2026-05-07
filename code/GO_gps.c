@@ -2,7 +2,7 @@
  * \file   GO_gps.c
  * \brief  Platform-agnostic GPS implementation for GOcontroll targets.
  *         Compile with -DGOCONTROLL_LINUX for Linux targets or
- *         -DGOCONTROLL_IOT for STM32-based IoT targets.
+ *         -DGOCONTROLL_IOT for STM32-based S1 targets.
  * \internal
  *----------------------------------------------------------------------------------------
  *                          C O P Y R I G H T
@@ -35,7 +35,7 @@
 #include "GO_gps.h"
 
 /****************************************************************************************
- * IoT implementation — GPS data is received from the ESP32 via the UART frame protocol.
+ * S1 implementation — GPS data is received from the ESP32 via the UART frame protocol.
  * The ESP sends ESPIF_MSG_GPS_DATA (0x40) frames; the ESP driver calls
  * GO_communication_esp_on_gps_data() from UART ISR context to store the data.
  * GO_gps_read() runs in task context and uses a brief interrupt disable to copy

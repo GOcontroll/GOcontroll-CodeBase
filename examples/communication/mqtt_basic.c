@@ -8,8 +8,8 @@
  *         received on that topic.
  *
  *         This example works unchanged on both platforms:
- *           GOCONTROLL_LINUX  (Moduline IV / Moduline Mini) — uses libmosquitto
- *           GOCONTROLL_IOT    (Moduline IOT, STM32H5)       — uses ESP32 co-processor
+ *           GOCONTROLL_LINUX  (Moduline L4 / Moduline M1) — uses libmosquitto
+ *           GOCONTROLL_IOT    (Moduline S1, STM32H5)       — uses ESP32 co-processor
  *
  *         Topic layout:
  *           Publish:   /gocontroll/sensor/ch1     payload: ASCII millivolt value
@@ -21,7 +21,7 @@
  *         Prerequisites:
  *           - An MQTT broker reachable on BROKER_HOST:BROKER_PORT
  *           - For Linux: libmosquitto installed (apt install libmosquitto-dev)
- *           - For IOT:   ESP32 co-processor module present in the controller
+ *           - For S1:    ESP32 co-processor module present in the controller
  **************************************************************************************/
 
 #include <stdint.h>

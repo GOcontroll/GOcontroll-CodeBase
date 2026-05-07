@@ -2,7 +2,7 @@
  * \file   GO_controller_info.h
  * \brief  Controller runtime information interface for GOcontroll targets.
  *         Covers model/XCP task stack high-water marks, free heap and CPU load.
- *         Compile with -DGOCONTROLL_IOT for STM32-based IoT targets.
+ *         Compile with -DGOCONTROLL_IOT for STM32-based S1 targets.
  *         On Linux, all functions return 0.
  * \internal
  *----------------------------------------------------------------------------------------
@@ -135,21 +135,21 @@ void GO_controller_info_get_rtc_time(_rtcTime *time);
 /**************************************************************************************
 ** \brief     Return the minimum free stack ever recorded for the model step task
 **            (high-water mark). Call at low frequency — scans the full stack.
-** \return    Remaining stack in bytes (IoT only; returns 0 on Linux).
+** \return    Remaining stack in bytes (S1 only; returns 0 on Linux).
 ***************************************************************************************/
 uint32_t GO_controller_info_get_model_stack(void);
 
 /**************************************************************************************
 ** \brief     Return the minimum free stack ever recorded for the XCP thread
 **            (high-water mark). Call at low frequency — scans the full stack.
-** \return    Remaining stack in bytes (IoT only; returns 0 on Linux).
+** \return    Remaining stack in bytes (S1 only; returns 0 on Linux).
 ***************************************************************************************/
 uint32_t GO_controller_info_get_xcp_stack(void);
 
 /**************************************************************************************
 ** \brief     Return the current FreeRTOS free heap size.
 **            Updated every ~1 s by ControllerInfoTask in GO_board.c.
-** \return    Free heap in bytes (IoT only; returns 0 on Linux).
+** \return    Free heap in bytes (S1 only; returns 0 on Linux).
 ***************************************************************************************/
 uint32_t GO_controller_info_get_free_heap(void);
 
@@ -157,7 +157,7 @@ uint32_t GO_controller_info_get_free_heap(void);
 ** \brief     Return the CPU load as a percentage (0-100).
 **            Computed as 100% minus the FreeRTOS IDLE task share over the last ~1 s.
 **            Updated every ~1 s by ControllerInfoTask in GO_board.c.
-** \return    CPU load percentage (IoT only; returns 0 on Linux).
+** \return    CPU load percentage (S1 only; returns 0 on Linux).
 ***************************************************************************************/
 uint8_t GO_controller_info_get_cpu_load(void);
 

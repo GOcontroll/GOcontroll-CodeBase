@@ -2,7 +2,7 @@
 * \file         GO_communication_can.h
 * \brief        Unified CAN communication driver for GOcontroll platforms.
 *               Linux: SocketCAN (PF_CAN / SOCK_RAW).
-*               IoT  : STM32 FDCAN via STM32 HAL.
+*               S1   : STM32 FDCAN via STM32 HAL.
 * \internal
 *----------------------------------------------------------------------------------------
 *                          C O P Y R I G H T
@@ -38,7 +38,7 @@ extern "C" {
 #endif
 
 /****************************************************************************************
-* IoT platform (STM32 FDCAN via HAL)
+* S1 platform (STM32 FDCAN via HAL)
 ****************************************************************************************/
 #ifdef GOCONTROLL_IOT
 
@@ -59,7 +59,7 @@ extern "C" {
 #define CAN_PACKED_EXTID 0b010000
 #define CAN_PACKED_RTR   0b100000
 
-/** Compact CAN frame representation used internally by the IoT driver */
+/** Compact CAN frame representation used internally by the S1 driver */
 struct can_frame {
 	uint8_t  data[8];
 	uint32_t id;

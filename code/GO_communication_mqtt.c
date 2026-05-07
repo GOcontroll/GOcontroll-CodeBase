@@ -132,7 +132,7 @@ __attribute__((weak)) void GO_communication_mqtt_on_status(uint8_t status) { (vo
 
 
 /* ============================================================================
- * IOT — ESP32 co-processor via GO_communication_esp
+ * S1 — ESP32 co-processor via GO_communication_esp
  * ========================================================================= */
 #ifdef GOCONTROLL_IOT
 

@@ -7,8 +7,8 @@
  *         on-board accelerometer/gyroscope.
  *
  *         Platform selection via preprocessor define:
- *           GOCONTROLL_IOT   →  STM32H5 (Moduline IOT)
- *           GOCONTROLL_LINUX →  Linux/IMX8 (Moduline IV / Moduline Mini)
+ *           GOCONTROLL_IOT   →  STM32H5 (Moduline S1)
+ *           GOCONTROLL_LINUX →  Linux/IMX8 (Moduline L4 / Moduline M1)
  * \internal
  *----------------------------------------------------------------------------------------
  *                          C O P Y R I G H T

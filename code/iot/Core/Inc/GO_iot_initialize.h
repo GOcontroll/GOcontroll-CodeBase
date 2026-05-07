@@ -1,8 +1,8 @@
 /**************************************************************************************
 ** \file      GO_iot_initialize.h
-** \brief     GOcontroll IoT controller platform initialization.
+** \brief     GOcontroll S1 controller platform initialization.
 **            Contains all hardware and middleware initialization required to run the
-**            GOcontroll IoT controller. Call GO_iot_initialize() once at startup,
+**            GOcontroll S1 controller. Call GO_iot_initialize() once at startup,
 **            before any model or application code is executed.
 ** \internal
 ***************************************************************************************
@@ -43,7 +43,7 @@ extern "C" {
 #include "cmsis_os2.h"
 
 /****************************************************************************************
-** \brief  Initialize the GOcontroll IoT controller platform.
+** \brief  Initialize the GOcontroll S1 controller platform.
 **         Performs HAL init, clock configuration, all peripheral inits (GPIO, SPI,
 **         UART, ADC, TIM, FDCAN, RTC), SEGGER RTT, ESP communication, FreeRTOS
 **         kernel, and the controller info task.

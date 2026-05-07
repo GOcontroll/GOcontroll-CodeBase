@@ -3,9 +3,9 @@
  * \brief  Platform-independent MQTT client API for GOcontroll hardware.
  *
  *         Provides identical function calls on all supported platforms:
- *           GOCONTROLL_LINUX  — Moduline IV / Moduline Mini
+ *           GOCONTROLL_LINUX  — Moduline L4 / Moduline M1
  *                               Backend: libmosquitto (background thread)
- *           GOCONTROLL_IOT    — Moduline IOT (STM32H5)
+ *           GOCONTROLL_IOT    — Moduline S1 (STM32H5)
  *                               Backend: GO_communication_esp (ESP32 co-processor)
  *
  *         Typical usage:

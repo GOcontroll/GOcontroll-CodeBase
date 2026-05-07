@@ -7,8 +7,8 @@
  *         on-board accelerometer/gyroscope.
  *
  *         Platform selection via preprocessor define:
- *           GOCONTROLL_IOT   →  STM32H5 (Moduline IOT)
- *           GOCONTROLL_LINUX →  Linux/IMX8 (Moduline IV / Moduline Mini)
+ *           GOCONTROLL_IOT   →  STM32H5 (Moduline S1)
+ *           GOCONTROLL_LINUX →  Linux/IMX8 (Moduline L4 / Moduline M1)
  * \internal
  *----------------------------------------------------------------------------------------
  *                          C O P Y R I G H T
@@ -75,7 +75,7 @@
  */
 
 /* =====================================
- * ControllerPower — IoT
+ * ControllerPower — S1
  * ===================================== */
 
 /* ADC channel mapping: index 0 = K15/battery (CH9), index 1 = K30 (CH5) */
@@ -188,7 +188,7 @@ int GO_board_controller_power_controller_active(uint8_t state) {
 }
 
 /* =====================================
- * StatusLeds — IoT
+ * StatusLeds — S1
  * ===================================== */
 
 /**************************************************************************************
@@ -236,7 +236,7 @@ int GO_board_status_leds_led_control(uint8_t led, _ledColor color, uint8_t value
 }
 
 /* =====================================
- * ControllerInfo — IoT
+ * ControllerInfo — S1
  * ===================================== */
 
 extern osThreadId_t model_step_thread;
@@ -1083,7 +1083,7 @@ float GO_board_controller_info_get_temperature(void) {
 /**************************************************************************************
 ** \brief     Read hardware version from the controller and populate hardwareConfig.
 **            Reads the devicetree hardware string and sets module count, LED type,
-**            and ADC type. Falls back to Moduline IV defaults on read failure.
+**            and ADC type. Falls back to Moduline L4 defaults on read failure.
 ** \return    none.
 ***************************************************************************************/
 void GO_board_get_hardware_version(void) {

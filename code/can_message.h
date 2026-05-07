@@ -2,7 +2,7 @@
  * \file   can_message.h
  * \brief  Platform-independent CAN message type used by the GOcontroll blockset.
  *         Matches the Simulink CAN_DATATYPE convention so generated code from the
- *         CAN send/receive blocks can target both Linux (SocketCAN) and IoT (FDCAN).
+ *         CAN send/receive blocks can target both Linux (SocketCAN) and S1 (FDCAN).
  *
  * \internal
  *----------------------------------------------------------------------------------------

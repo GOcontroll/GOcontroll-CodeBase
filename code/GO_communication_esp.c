@@ -1,6 +1,6 @@
 /************************************************************************************//**
 * \file         GO_communication_esp.c
-* \brief        STM32H to ESP32 communication driver (IoT platform only).
+* \brief        STM32H to ESP32 communication driver (S1 platform only).
 *               Implements a framed UART protocol with CRC-16/CCITT integrity.
 *               Frame: [SOF0][SOF1][MSG_ID][LEN_LO][LEN_HI][PAYLOAD][CRC_LO][CRC_HI]
 *               CRC-16/CCITT: polynomial 0x1021, init 0xFFFF, over MSG_ID+LEN+PAYLOAD.

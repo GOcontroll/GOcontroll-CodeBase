@@ -1,6 +1,6 @@
 /**************************************************************************************
 ** \file      GO_iot_initialize.c
-** \brief     GOcontroll IoT controller platform initialization.
+** \brief     GOcontroll S1 controller platform initialization.
 ** \internal
 ***************************************************************************************
 ** C O P Y R I G H T
@@ -44,7 +44,7 @@
 
 
 /****************************************************************************************
-** \brief  Initialize the GOcontroll IoT controller platform.
+** \brief  Initialize the GOcontroll S1 controller platform.
 ****************************************************************************************/
 void GO_iot_initialize(void)
 {

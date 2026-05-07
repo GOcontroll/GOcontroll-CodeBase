@@ -4,8 +4,8 @@
  *         Handles SPI send/receive, chip selects, module reset and bootloader escape.
  *
  *         Platform selection via preprocessor define:
- *           GOCONTROLL_IOT  →  STM32H5 (Moduline IOT)
- *           (default)       →  Linux/IMX8 (Moduline IV / Moduline Mini)
+ *           GOCONTROLL_IOT  →  STM32H5 (Moduline S1)
+ *           (default)       →  Linux/IMX8 (Moduline L4 / Moduline M1)
  * \internal
  *----------------------------------------------------------------------------------------
  *                          C O P Y R I G H T

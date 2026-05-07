@@ -2,7 +2,7 @@
 * \file         GO_communication_can.c
 * \brief        Unified CAN communication driver for GOcontroll platforms.
 *               Linux: SocketCAN (PF_CAN / SOCK_RAW).
-*               IoT  : STM32 FDCAN via STM32 HAL.
+*               S1   : STM32 FDCAN via STM32 HAL.
 * \internal
 *----------------------------------------------------------------------------------------
 *                          C O P Y R I G H T
@@ -33,7 +33,7 @@
 #include "GO_communication_can.h"
 
 /****************************************************************************************
-* IoT platform (STM32 FDCAN via HAL)
+* S1 platform (STM32 FDCAN via HAL)
 ****************************************************************************************/
 #ifdef GOCONTROLL_IOT
 
