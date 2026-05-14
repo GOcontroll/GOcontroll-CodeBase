@@ -20,7 +20,6 @@ Top-level layout:
 ```
 code/        Public C library — board, communication, modules, XCP, S1 subtree
 examples/    Self-contained main()s, one per topic (Linux only at present)
-lib/         Vendored third-party (IIO) — do not modify
 ```
 
 ---

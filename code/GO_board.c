@@ -464,12 +464,60 @@ void GO_board_controller_info_get_data(GOcontrollControllerInfo_t *out) {
 /* ---- ControllerInfo ---- */
 #include <stdbool.h>
 
-#include "iio.h"
-
 #include "GO_xcp.h"
 #include "GO_communication_modules.h"
 
 extern _hardwareConfig hardwareConfig;
+
+/****************************************************************************************
+ * IIO sysfs helpers — replace libiio for MCP3004 and LIS2DW12 access
+ ****************************************************************************************/
+
+/* Look up an IIO device by its kernel name (e.g. "mcp3004", "lis2dw12") by
+ * scanning /sys/bus/iio/devices/iio:device*. Writes the matching basename
+ * ("iio:deviceN") into basename_out so the caller can build both sysfs and
+ * /dev/<basename> paths. Returns 0 on success, -1 if not found. */
+static int iio_find_device(const char *name, char *basename_out, size_t out_size) {
+	DIR *dir = opendir("/sys/bus/iio/devices");
+	if (!dir) return -1;
+
+	int found = -1;
+	struct dirent *ent;
+	while ((ent = readdir(dir)) != NULL) {
+		if (strncmp(ent->d_name, "iio:device", 10) != 0) continue;
+
+		char name_path[320];
+		snprintf(name_path, sizeof name_path,
+				 "/sys/bus/iio/devices/%s/name", ent->d_name);
+
+		int fd = open(name_path, O_RDONLY);
+		if (fd < 0) continue;
+
+		char buf[64] = {0};
+		ssize_t n = read(fd, buf, sizeof buf - 1);
+		close(fd);
+		if (n <= 0) continue;
+		if (buf[n - 1] == '\n') n--;
+		buf[n] = '\0';
+
+		if (strcmp(buf, name) == 0) {
+			snprintf(basename_out, out_size, "%s", ent->d_name);
+			found = 0;
+			break;
+		}
+	}
+	closedir(dir);
+	return found;
+}
+
+/* One-shot write of a string value to a sysfs attribute. Returns 0/-1. */
+static int sysfs_write_str(const char *path, const char *value) {
+	int fd = open(path, O_WRONLY);
+	if (fd < 0) return -1;
+	ssize_t n = write(fd, value, strlen(value));
+	close(fd);
+	return (n < 0) ? -1 : 0;
+}
 
 /****************************************************************************************
  * Board — Linux
@@ -615,23 +663,32 @@ static struct {
 
 static pthread_t s_adcThreadId;
 
-static struct iio_device*  s_iioMCP;
-static struct iio_channel* s_adcChannels[4];
+/* fd cache for /sys/bus/iio/devices/<mcp3004>/in_voltage{0..3}_raw, indexed
+ * by physical MCP3004 channel number (0..3). Physical pin → supply mapping:
+ *   ch0 = K15-A,  ch1 = K15-B,  ch2 = K15-C,  ch3 = K30 (battery)
+ * This matches the pre-refactor libiio mapping after accounting for libiio's
+ * channel enumeration order on this driver ({voltage1, voltage2, voltage3,
+ * voltage0}); expressing it as the physical channel here is clearer. */
+static int s_mcp_fds[4] = {-1, -1, -1, -1};
 
 static int readAdc(uint8_t supply, uint16_t* value) {
 	if (hardwareConfig.adcControl == ADC_MCP3004) {
-		char   buf[100];
+		char    buf[100];
 		ssize_t res;
-		size_t  bufSize = sizeof buf;
+		int     fd;
 
 		switch (supply) {
-			case 1: res = iio_channel_attr_read(s_adcChannels[2], "raw", buf, bufSize); break;
-			case 2: res = iio_channel_attr_read(s_adcChannels[3], "raw", buf, bufSize); break;
-			case 3: res = iio_channel_attr_read(s_adcChannels[0], "raw", buf, bufSize); break;
-			case 4: res = iio_channel_attr_read(s_adcChannels[1], "raw", buf, bufSize); break;
+			case 1: fd = s_mcp_fds[3]; break; /* K30   on MCP3004 ch3 */
+			case 2: fd = s_mcp_fds[0]; break; /* K15-A on MCP3004 ch0 */
+			case 3: fd = s_mcp_fds[1]; break; /* K15-B on MCP3004 ch1 */
+			case 4: fd = s_mcp_fds[2]; break; /* K15-C on MCP3004 ch2 */
 			default: return -1;
 		}
-		(void)res;
+		if (fd < 0) return -1;
+
+		res = pread(fd, buf, sizeof buf - 1, 0);
+		if (res < 0) res = 0;
+		buf[res] = '\0';
 		/* 25.54 = ((3.35/1023)/1.5)*11700 */
 		*value = (uint16_t)((float)(strtof(buf, NULL) * 25.54));
 		return 0;
@@ -703,19 +760,20 @@ static int readAdc(uint8_t supply, uint16_t* value) {
 
 static void* adcThreadFunc(void* arg) {
 	(void)arg;
-	struct iio_context* iioContext = NULL;
 	__useconds_t sample_time = (__useconds_t)(s_adcThreadArgs.sample_time * 1000);
 
 	if (hardwareConfig.adcControl == ADC_MCP3004) {
-		iioContext = iio_create_local_context();
-		uint8_t channel_count = 0;
-		s_iioMCP = iio_context_find_device(iioContext, "mcp3004");
-		for (uint8_t i = 0; i < iio_device_get_channels_count(s_iioMCP); ++i) {
-			struct iio_channel* chn = iio_device_get_channel(s_iioMCP, i);
-			if (iio_channel_get_attrs_count(chn) == 2) {
-				s_adcChannels[channel_count] = chn;
-				channel_count++;
+		char devname[32];
+		if (iio_find_device("mcp3004", devname, sizeof devname) == 0) {
+			for (int i = 0; i < 4; ++i) {
+				char path[128];
+				snprintf(path, sizeof path,
+						 "/sys/bus/iio/devices/%s/in_voltage%d_raw",
+						 devname, i);
+				s_mcp_fds[i] = open(path, O_RDONLY);
 			}
+		} else {
+			fprintf(stderr, "ADC: could not find iio device 'mcp3004'\n");
 		}
 	}
 
@@ -727,8 +785,11 @@ static void* adcThreadFunc(void* arg) {
 		usleep(sample_time);
 	}
 
-	if (iioContext != NULL) {
-		iio_context_destroy(iioContext);
+	for (int i = 0; i < 4; ++i) {
+		if (s_mcp_fds[i] >= 0) {
+			close(s_mcp_fds[i]);
+			s_mcp_fds[i] = -1;
+		}
 	}
 	return 0;
 }
@@ -1092,88 +1153,94 @@ void GO_board_get_hardware_version(void) {
 
 static void *ControllerInfoThread(void *args) {
 	(void)args;
-	ssize_t            bytes;
-	char               channel_buff[2];
-	struct iio_context *ctx;
-	struct iio_device  *dev;
-	struct iio_channel *ch_x, *ch_y, *ch_z;
-	struct iio_buffer  *buff;
-	bool               run = true;
+	char devname[32];
+	char path[160];
+	char buf_enable_path[160];
+	int  fd;
+	bool run = true;
 
-	ctx = iio_create_local_context();
-	if (!ctx) {
-		fprintf(stderr, "ControllerInfo: could not get iio context: %s\n",
-				strerror(errno));
+	if (iio_find_device("lis2dw12", devname, sizeof devname) != 0) {
+		fprintf(stderr, "ControllerInfo: could not find iio device 'lis2dw12'\n");
 		return NULL;
 	}
 
-	dev = iio_context_find_device(ctx, "lis2dw12");
-	if (!dev) {
-		fprintf(stderr, "ControllerInfo: could not find lis2dw12\n");
-		iio_context_destroy(ctx);
-		return NULL;
-	}
+	/* Disable buffer first so scan_elements writes are accepted even if the
+	 * buffer was left enabled by a previous run. */
+	snprintf(buf_enable_path, sizeof buf_enable_path,
+			 "/sys/bus/iio/devices/%s/buffer/enable", devname);
+	sysfs_write_str(buf_enable_path, "0");
 
-	bytes = iio_device_attr_write(dev, "sampling_frequency", "100");
-	if (bytes < 0) {
+	snprintf(path, sizeof path,
+			 "/sys/bus/iio/devices/%s/sampling_frequency", devname);
+	if (sysfs_write_str(path, "100") != 0) {
 		fprintf(stderr, "ControllerInfo: could not set sampling_frequency: %s\n",
-				strerror((int)bytes));
-		iio_context_destroy(ctx);
-		return NULL;
-	}
-
-	ch_x = iio_device_find_channel(dev, "accel_x", false);
-	ch_y = iio_device_find_channel(dev, "accel_y", false);
-	ch_z = iio_device_find_channel(dev, "accel_z", false);
-	if (!ch_x || !ch_y || !ch_z) {
-		fprintf(stderr, "ControllerInfo: could not get accel channels\n");
-		iio_context_destroy(ctx);
-		return NULL;
-	}
-
-	iio_channel_enable(ch_x);
-	iio_channel_enable(ch_y);
-	iio_channel_enable(ch_z);
-
-	bytes = iio_channel_attr_write(ch_x, "scale", "0.009571");
-	if (bytes < 0) {
-		fprintf(stderr, "ControllerInfo: could not set scale: %s\n",
-				strerror((int)bytes));
-		iio_context_destroy(ctx);
-		return NULL;
-	}
-
-	buff = iio_device_create_buffer(dev, 1, false);
-	if (!buff) {
-		fprintf(stderr, "ControllerInfo: could not create iio buffer: %s\n",
 				strerror(errno));
-		iio_context_destroy(ctx);
 		return NULL;
 	}
 
-	iio_buffer_set_blocking_mode(buff, true);
+	snprintf(path, sizeof path,
+			 "/sys/bus/iio/devices/%s/in_accel_x_scale", devname);
+	if (sysfs_write_str(path, "0.009571") != 0) {
+		fprintf(stderr, "ControllerInfo: could not set scale: %s\n",
+				strerror(errno));
+		return NULL;
+	}
+
+	const char *axes[] = { "x", "y", "z" };
+	for (int i = 0; i < 3; ++i) {
+		snprintf(path, sizeof path,
+				 "/sys/bus/iio/devices/%s/scan_elements/in_accel_%s_en",
+				 devname, axes[i]);
+		if (sysfs_write_str(path, "1") != 0) {
+			fprintf(stderr, "ControllerInfo: could not enable accel_%s: %s\n",
+					axes[i], strerror(errno));
+			return NULL;
+		}
+	}
+
+	snprintf(path, sizeof path,
+			 "/sys/bus/iio/devices/%s/buffer/length", devname);
+	sysfs_write_str(path, "1");
+
+	if (sysfs_write_str(buf_enable_path, "1") != 0) {
+		fprintf(stderr, "ControllerInfo: could not enable buffer: %s\n",
+				strerror(errno));
+		return NULL;
+	}
+
+	char chardev[64];
+	snprintf(chardev, sizeof chardev, "/dev/%s", devname);
+	fd = open(chardev, O_RDONLY);
+	if (fd < 0) {
+		fprintf(stderr, "ControllerInfo: could not open %s: %s\n",
+				chardev, strerror(errno));
+		sysfs_write_str(buf_enable_path, "0");
+		return NULL;
+	}
 
 	while (s_info_task_run && run) {
-		if ((bytes = iio_buffer_refill(buff)) <= 0) {
-			if (bytes != -EAGAIN) {
-				fprintf(stderr,
-						"ControllerInfo: could not refill iio buffer: %s\n",
-						strerror((int)bytes));
-				run = false;
-			}
+		uint8_t frame[6]; /* 3 x int16 LE: x, y, z — LIS2DW12 layout */
+		ssize_t bytes = read(fd, frame, sizeof frame);
+
+		if (bytes < 0) {
+			if (errno == EAGAIN) continue;
+			fprintf(stderr, "ControllerInfo: could not read iio chardev: %s\n",
+					strerror(errno));
+			run = false;
+			continue;
+		}
+		if (bytes != (ssize_t)sizeof frame) {
 			continue;
 		}
 
-		float x = 0.0f, y = 0.0f, z = 0.0f;
-
-		bytes = iio_channel_read(ch_x, buff, channel_buff, sizeof(channel_buff));
-		if (bytes == 2) x = (float)*(int16_t *)channel_buff * 0.009571f;
-
-		bytes = iio_channel_read(ch_y, buff, channel_buff, sizeof(channel_buff));
-		if (bytes == 2) y = (float)*(int16_t *)channel_buff * 0.009571f;
-
-		bytes = iio_channel_read(ch_z, buff, channel_buff, sizeof(channel_buff));
-		if (bytes == 2) z = (float)*(int16_t *)channel_buff * 0.009571f;
+		/* Scan-element type is "le:s12/16>>4": 12-bit signed data
+		 * left-aligned in a 16-bit little-endian container. Arithmetic
+		 * shift right by 4 to recover the signed sample; the 0.009571
+		 * scale factor is calibrated against this post-shift value
+		 * (matches libiio's iio_channel_read semantics). */
+		float x = (float)((*(int16_t *)&frame[0]) >> 4) * 0.009571f;
+		float y = (float)((*(int16_t *)&frame[2]) >> 4) * 0.009571f;
+		float z = (float)((*(int16_t *)&frame[4]) >> 4) * 0.009571f;
 
 		pthread_mutex_lock(&s_info_data_lock);
 		s_info_data.acc_x = x;
@@ -1182,8 +1249,8 @@ static void *ControllerInfoThread(void *args) {
 		pthread_mutex_unlock(&s_info_data_lock);
 	}
 
-	iio_buffer_destroy(buff);
-	iio_context_destroy(ctx);
+	close(fd);
+	sysfs_write_str(buf_enable_path, "0");
 	return NULL;
 }
 
