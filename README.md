@@ -17,7 +17,7 @@ flavours share the same public API:
 ```
 code/        Public C library — board, communication, modules, XCP, S1 subtree
 examples/    Self-contained main()s, one per topic (Linux only at present)
-lib/         Vendored third-party (IIO, JSON-C) — do not modify
+lib/         Vendored third-party (IIO) — do not modify
 AGENTS.md    Index for AI coding tools (hard rules + conventions)
 ```
 
