@@ -58,4 +58,4 @@ fail-safe watchdog if no frame arrives within **400 ms**.
 ## License
 
 Library code: see header doc-blocks (MIT-style). Vendored libraries under
-`lib/` and `code/iot/Drivers/` retain their original licenses.
+`code/iot/Drivers/` retain their original licenses.
