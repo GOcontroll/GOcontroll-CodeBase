@@ -40,6 +40,25 @@ extern "C" {
 
 /****************************************************************************************
 * S1 platform only (STM32H)
+*
+* PACING WARNING — read before sending two frames in a row.
+* ----------------------------------------------------------
+* All public send functions below (`*_send_*`, `*_set_*`, `*_enable_*`,
+* `*_mqtt_publish`, `*_mqtt_subscribe`, `*_mqtt_unsubscribe`) ultimately call
+* `SendFrame()` in GO_communication_esp.c, which uses `HAL_UART_Transmit_IT`
+* with a `s_tx_busy` guard. Frames offered while the previous transmit is
+* still in progress are **silently dropped** — no retry, no error return.
+*
+* In practice this means a caller MUST NOT call two of these functions
+* back-to-back from the same task tick / loop iteration. Example trap:
+*
+*     GO_communication_esp_set_modem_config(apn, pin);
+*     GO_communication_esp_enable_lte(true);   // ← dropped, modem never starts
+*
+* Recommended pattern: drive bring-up from a periodic state-machine that
+* sends ONE frame per tick (≥ 10 ms spacing). At 115200 baud a worst-case
+* 519-byte frame takes ≈ 45 ms, so a 100 ms tick is always safe.
+* See GOcontroll-CodeBase/AGENTS.md rule 11.
 ****************************************************************************************/
 #ifdef GOCONTROLL_IOT
 

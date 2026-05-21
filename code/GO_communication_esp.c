@@ -107,19 +107,36 @@ static uint16_t  s_rx_crc_rx  = 0u;
 static uint8_t   s_rx_payload[ESPIF_MAX_PAYLOAD_LEN];
 
 /*==============================================================================================
-** TX — build and send a framed message (blocking, 100 ms timeout).
+** TX — build and send a framed message (non-blocking, fire-and-forget).
 ** Frame layout: [SOF0][SOF1][MSG_ID][LEN_LO][LEN_HI][PAYLOAD...][CRC_LO][CRC_HI]
 ** CRC covers:   MSG_ID + LEN_LO + LEN_HI + PAYLOAD
 **
 ** The complete frame is assembled into a single static buffer and sent with one
-** HAL_UART_Transmit call.  This eliminates intra-frame gaps between header, payload
-** and CRC that could occur when using multiple back-to-back transmit calls.
+** HAL_UART_Transmit_IT call.  This eliminates intra-frame gaps between header,
+** payload and CRC that could occur when using multiple back-to-back transmit calls.
+**
+** ─── PACING CONTRACT ──────────────────────────────────────────────────────────
+** This function returns immediately. The actual UART transmit runs in the
+** background under the HAL TX-complete ISR which clears `s_tx_busy`. Any
+** subsequent SendFrame() call that arrives before TX-complete fires is
+** **silently dropped** (see the `s_tx_busy` early-return below). There is
+** no retry, no queue, and no error return.
+**
+** Callers therefore MUST space consecutive send calls out so the previous
+** transmit has completed. At 115200 baud the worst-case frame (7 header
+** + 512 payload = 519 bytes) takes about 45 ms; pacing at ≥ 100 ms per
+** frame is always safe. See GOcontroll-CodeBase/AGENTS.md rule 11.
+** ────────────────────────────────────────────────────────────────────────────
 ==============================================================================================*/
 
 static void SendFrame(uint8_t msg_id, const uint8_t *payload, uint16_t len)
 {
     if (s_huart == NULL || len > ESPIF_MAX_PAYLOAD_LEN) { return; }
-    if (s_tx_busy) { return; }   /* previous frame still transmitting — drop */
+    /* Previous frame still transmitting — DROP this one. See PACING CONTRACT
+     * in the block comment above: callers must pace their sends to avoid this.
+     * Symptom of mis-pacing: the second of two back-to-back frames never
+     * reaches the ESP (e.g. MODEM_CONFIG arrives but LTE_ENABLE does not). */
+    if (s_tx_busy) { return; }
 
     static uint8_t s_tx_buf[ESPIF_FRAME_OVERHEAD + ESPIF_MAX_PAYLOAD_LEN];
     uint16_t n = 0u;

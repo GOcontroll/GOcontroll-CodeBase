@@ -89,6 +89,25 @@ examples/    Self-contained main()s, one per topic (Linux only at present)
     must run from task context.
     See `code/GO_communication_can.h:121,154,190`.
 
+11. **ESP frame-pacing (S1 only):** `GO_communication_esp.c::SendFrame()` is
+    a single-buffer `HAL_UART_Transmit_IT` send with a `s_tx_busy` guard.
+    Frames offered while the previous transmit is still in progress are
+    **silently dropped** — no retry, no error return, no queue. Practical
+    consequence: do **not** call two ESP send functions back-to-back from
+    the same task context without spacing them out.
+
+    Common trap: `GO_communication_esp_set_modem_config(...)` followed
+    immediately by `GO_communication_esp_enable_lte(true)` looks like one
+    "configure-and-enable" action but is two UART frames; the second one
+    will not reach the ESP. Same applies to `mqtt_configure` +
+    `mqtt_enable`, and to any pair of `_set_*` + `_enable_*` calls.
+
+    Recommended pattern: drive the bring-up from a periodic task with a
+    state-machine that sends one frame per tick (e.g. one frame per
+    10–100 ms). One UART frame at 115200 baud takes ≤ 50 ms even at the
+    512-byte payload limit, so a 100 ms task tick is always safe.
+    See `code/GO_communication_esp.c:119–148` for the SendFrame source.
+
 ---
 
 ## Where to look
@@ -116,6 +135,10 @@ The source-of-truth lives in:
 - **CAN bus stops after one bus-off** → recovery only happens when
   `GO_communication_can_bus_off_recovery` is wired into the
   `HAL_FDCAN_ErrorStatusCallback` (S1). See rule 10.
+- **ESP/modem/MQTT only receives the first of two back-to-back frames**
+  (e.g. `MODEM_CONFIG` arrives but `LTE_ENABLE` does not) → caller
+  invoked two ESP send functions in the same task tick; the second
+  hit the `s_tx_busy` drop. See rule 11.
 
 ---
 
