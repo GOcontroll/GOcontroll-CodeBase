@@ -67,6 +67,8 @@ extern "C" {
 #define IRMODULEMESSAGELENGTH			31
 #define RTCMODULEMESSAGELENGTH			44
 
+#define LOADCELLMODULEMESSAGELENGTH		50
+
 #define MESSAGEOVERLENGTH				1
 
 /****************************************************************************************
