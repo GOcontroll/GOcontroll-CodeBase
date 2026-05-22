@@ -86,6 +86,11 @@ typedef struct {
 
 /**************************************************************************************
 ** \brief     Sends the configuration data to the loadcell module.
+**            Packs the per-channel gain, data rate, sensitivity and full-scale
+**            settings into an SPI frame and transmits it to the module. Also reads
+**            the firmware version from hardwareConfig into loadcellModule->sw_version.
+**            Must be called after GO_module_loadcell_configure_channel() for all
+**            channels that need to be active.
 ** \param     loadcellModule  Pointer to a _loadcellModule struct that holds the
 **                            relevant module configuration.
 ** \return    0 if successful, negative errno value if failed.
@@ -94,6 +99,11 @@ int GO_module_loadcell_configuration(_loadcellModule* loadcellModule);
 
 /**************************************************************************************
 ** \brief     Retrieves measurement values from the loadcell module via SPI.
+**            Sends a request frame and reads back the four channel values into
+**            loadcellModule->value[]. Each value is a signed 32-bit integer whose
+**            unit depends on the sensitivity mode configured for that channel:
+**            raw ADC counts (LOADCELLSENSITIVITY_RAW) or scaled millinewtons /
+**            engineering units for the mV/V sensitivity modes.
 ** \param     loadcellModule  Pointer to a _loadcellModule struct that holds the
 **                            relevant module configuration.
 ** \return    0 if successful, negative errno value if failed.
@@ -101,7 +111,12 @@ int GO_module_loadcell_configuration(_loadcellModule* loadcellModule);
 int GO_module_loadcell_receive_values(_loadcellModule* loadcellModule);
 
 /**************************************************************************************
-** \brief     Sets the module slot for a loadcell module and validates the slot assignment.
+** \brief     Sets the module slot for a loadcell module and validates the slot
+**            assignment. Verifies that the module physically present in the given
+**            slot matches the loadcell module ID {20, 10, 4}.
+**            GO_communication_modules_initialize() must be called for this slot
+**            before this function, otherwise the occupancy table is empty and
+**            validation will fail.
 ** \param     loadcellModule  Pointer to a _loadcellModule struct that holds the
 **                            relevant module configuration.
 ** \param     moduleSlot      The slot index (0-based) that the module is inserted in.
@@ -111,14 +126,26 @@ int GO_module_loadcell_set_module_slot(_loadcellModule* loadcellModule,
 									   uint8_t moduleSlot);
 
 /**************************************************************************************
-** \brief     Configures an input channel on a loadcell module.
+** \brief     Configures a single channel on a loadcell module.
+**            Stores gain, data rate, sensitivity and full-scale in the struct;
+**            the settings are not sent to the module until
+**            GO_module_loadcell_configuration() is called.
 ** \param     loadcellModule  Pointer to a _loadcellModule struct that holds the
 **                            relevant module configuration.
-** \param     channel         The channel index to configure (use LOADCELLCHANNEL* macros).
-** \param     gain            ADC gain setting (use LOADCELLGAIN_* macros).
-** \param     datarate        ADC data rate (use LOADCELLDATARATE_* macros).
-** \param     sensitivity     Sensitivity mode (use LOADCELLSENSITIVITY_* macros).
-** \param     FullScale       Full-scale range value.
+** \param     channel         Channel index to configure (use LOADCELLCHANNEL* macros).
+** \param     gain            ADC programmable gain amplifier setting.
+**                            LOADCELLGAIN_64 = 64x, LOADCELLGAIN_128 = 128x,
+**                            LOADCELLGAIN_32 = 32x.
+** \param     datarate        ADC conversion rate.
+**                            LOADCELLDATARATE_10 = 10 SPS, LOADCELLDATARATE_80 = 80 SPS.
+** \param     sensitivity     Output scaling mode.
+**                            LOADCELLSENSITIVITY_RAW  = raw ADC counts,
+**                            LOADCELLSENSITIVITY_1MVV = 1 mV/V rated output,
+**                            LOADCELLSENSITIVITY_2MVV = 2 mV/V rated output,
+**                            LOADCELLSENSITIVITY_3MVV = 3 mV/V rated output.
+** \param     FullScale       Full-scale capacity of the load cell in the application
+**                            engineering unit (e.g. kg or N). Used by the module
+**                            firmware to scale the output for mV/V sensitivity modes.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
 int GO_module_loadcell_configure_channel(_loadcellModule* loadcellModule,
@@ -128,21 +155,28 @@ int GO_module_loadcell_configure_channel(_loadcellModule* loadcellModule,
 
 /**************************************************************************************
 ** \brief     Sets the module type for a loadcell module.
+**            Must be called before GO_module_loadcell_configure_channel() so that
+**            the channel configuration function can verify the correct module type.
 ** \param     loadcellModule  Pointer to a _loadcellModule struct that holds the
 **                            relevant module configuration.
-** \param     moduleType      The type of module (use LOADCELLMODULE macro).
+** \param     moduleType      Module type identifier. Use the LOADCELLMODULE macro.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
 int GO_module_loadcell_set_module_type(_loadcellModule* loadcellModule,
 									   uint8_t moduleType);
 
 /**************************************************************************************
-** \brief     Sends a tare offset to a specified channel of the loadcell module.
+** \brief     Sends a tare (zero offset) command to a channel on the loadcell module.
+**            The command is edge-triggered: a frame is only sent to the module when
+**            the trigger value differs from the last acknowledged trigger. Toggle the
+**            trigger between 0 and 1 on each desired tare event to control when the
+**            module re-applies the offset.
 ** \param     loadcellModule  Pointer to a _loadcellModule struct that holds the
 **                            relevant module configuration.
-** \param     channel         The channel index to tare (use LOADCELLCHANNEL* macros).
-** \param     value           The tare offset value to apply.
-** \param     trigger         Change on this input will trigger a send to the module.
+** \param     channel         Channel index to tare (use LOADCELLCHANNEL* macros).
+** \param     value           Tare offset to apply, in the same unit as value[channel].
+** \param     trigger         Edge signal: send occurs only when this differs from the
+**                            stored TareTrigger[channel] value.
 ** \return    0 if successful, negative errno value if failed.
 ***************************************************************************************/
 int GO_module_loadcell_tare(_loadcellModule* loadcellModule, uint8_t channel,

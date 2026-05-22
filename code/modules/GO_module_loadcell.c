@@ -56,8 +56,12 @@ const uint32_t VERSIONSPIPROTOCOLV2_LOADCELL = 2 << 16;
 
 extern _hardwareConfig hardwareConfig;
 
-/****************************************************************************************/
-
+/****************************************************************************************
+** \brief  Packs four channels of gain/datarate/sensitivity/FullScale into the SPI
+**         TX frame starting at byte 6 (5 bytes per channel, one reserved byte per
+**         channel for future use) and sends it as message type 1 to the module.
+**         The firmware version is read from hardwareConfig before the frame is built.
+****************************************************************************************/
 int GO_module_loadcell_configuration(_loadcellModule* loadcellModule) {
 	if (hardwareConfig.moduleOccupancy[loadcellModule->moduleSlot][0] == 0) {
 		return -ENODEV;
@@ -83,8 +87,12 @@ int GO_module_loadcell_configuration(_loadcellModule* loadcellModule) {
 		1, loadcellModule->moduleSlot, &loadcellDataTx[0], 0);
 }
 
-/****************************************************************************************/
-
+/****************************************************************************************
+** \brief  Edge-triggered tare command. Writes the channel index to TX byte 6 and
+**         the signed 32-bit offset to bytes 7-10, then sends message type 2 to the
+**         module. The frame is only transmitted when trigger differs from the stored
+**         TareTrigger value, preventing repeated sends on every cycle.
+****************************************************************************************/
 int GO_module_loadcell_tare(_loadcellModule* loadcellModule, uint8_t channel,
 							int32_t value, uint8_t trigger) {
 	if (hardwareConfig.moduleOccupancy[loadcellModule->moduleSlot][0] == 0) {
@@ -108,8 +116,12 @@ int GO_module_loadcell_tare(_loadcellModule* loadcellModule, uint8_t channel,
 	return 0;
 }
 
-/****************************************************************************************/
-
+/****************************************************************************************
+** \brief  Sends a type-3 SPI request and reads back 4 signed 32-bit values from the
+**         response frame. Each value occupies 4 bytes starting at byte 6 of the RX
+**         buffer (offsets 6, 10, 14, 18). Values are written into loadcellModule->value[]
+**         only when the SPI transaction succeeds (checksum valid).
+****************************************************************************************/
 int GO_module_loadcell_receive_values(_loadcellModule* loadcellModule) {
 	if (hardwareConfig.moduleOccupancy[loadcellModule->moduleSlot][0] == 0) {
 		return -ENODEV;
@@ -126,8 +138,12 @@ int GO_module_loadcell_receive_values(_loadcellModule* loadcellModule) {
 	return res;
 }
 
-/****************************************************************************************/
-
+/****************************************************************************************
+** \brief  Validates the requested slot against hardwareConfig.moduleOccupancy using
+**         a 3-byte memcmp against LOADCELLMODULECHANNELID {20, 10, 4}. Stores the
+**         slot index on match; logs an error and returns -EINVAL on mismatch or
+**         out-of-range slot.
+****************************************************************************************/
 int GO_module_loadcell_set_module_slot(_loadcellModule* loadcellModule,
 									   uint8_t moduleSlot) {
 	if (moduleSlot < hardwareConfig.moduleNumber) {
@@ -147,8 +163,13 @@ int GO_module_loadcell_set_module_slot(_loadcellModule* loadcellModule,
 	return -EINVAL;
 }
 
-/****************************************************************************************/
-
+/****************************************************************************************
+** \brief  Validates channel (0-3), gain (0-3), datarate (0-3) and sensitivity (0-3),
+**         then stores sensitivity and FullScale directly and encodes gain and datarate
+**         into a single configuration byte as (datarate << 2) | gain. Settings are
+**         buffered in the struct and committed to the module by a subsequent call to
+**         GO_module_loadcell_configuration().
+****************************************************************************************/
 int GO_module_loadcell_configure_channel(_loadcellModule* loadcellModule,
 										 uint8_t channel, uint8_t gain,
 										 uint8_t datarate, uint8_t sensitivity,
@@ -193,8 +214,11 @@ int GO_module_loadcell_configure_channel(_loadcellModule* loadcellModule,
 	return 0;
 }
 
-/****************************************************************************************/
-
+/****************************************************************************************
+** \brief  Validates that moduleType equals LOADCELLMODULE and stores it in the struct.
+**         Must be called before GO_module_loadcell_configure_channel() so that the
+**         channel configuration function can verify the module type is correct.
+****************************************************************************************/
 int GO_module_loadcell_set_module_type(_loadcellModule* loadcellModule,
 									   uint8_t moduleType) {
 	if (moduleType == LOADCELLMODULE) {
