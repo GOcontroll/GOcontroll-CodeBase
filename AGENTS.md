@@ -108,6 +108,19 @@ examples/    Self-contained main()s, one per topic (Linux only at present)
     512-byte payload limit, so a 100 ms task tick is always safe.
     See `code/GO_communication_esp.c:119–148` for the SendFrame source.
 
+12. **The application must define `osThreadId_t model_step_thread`.** The
+    controller-info task (started unconditionally by
+    `GO_board_controller_info_task_start()` — see rule 7) reports the
+    application's main task stack high-water mark through the global
+    `extern osThreadId_t model_step_thread;` declared in `GO_board.c`. Because
+    the info task always runs on S1, **every** application that links this
+    build must define this symbol or the link fails with
+    `undefined reference to model_step_thread`. Assign it the handle of your
+    main model/application task for meaningful stack telemetry, or set it to
+    `NULL` when there is no single model task (the field then reflects the
+    info task itself — cosmetic only).
+    See `code/GO_board.c:242`.
+
 ---
 
 ## Where to look
@@ -139,6 +152,9 @@ The source-of-truth lives in:
   (e.g. `MODEM_CONFIG` arrives but `LTE_ENABLE` does not) → caller
   invoked two ESP send functions in the same task tick; the second
   hit the `s_tx_busy` drop. See rule 11.
+- **Link error `undefined reference to model_step_thread`** → the
+  application did not define the `osThreadId_t model_step_thread` global
+  that the controller-info task reads. See rule 12.
 
 ---
 
