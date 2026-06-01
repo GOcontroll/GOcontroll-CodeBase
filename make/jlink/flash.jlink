@@ -1,0 +1,11 @@
+// J-Link Commander script - flash GOcontroll S1 firmware.
+// Invoked by `make flash` with -Device/-If/-Speed/-AutoConnect set.
+// JLink's working directory is the application-repo root (where `make` runs), so
+// the path is root-relative. Loads a project-independent firmware.hex so a PROJECT
+// rename in the Makefile never requires editing this script.
+r
+halt
+loadfile deploy/firmware.hex
+r
+g
+q

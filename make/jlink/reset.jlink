@@ -1,0 +1,4 @@
+// J-Link Commander script - reset the STM32H573 and run.
+r
+g
+q
