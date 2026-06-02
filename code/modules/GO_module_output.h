@@ -104,6 +104,26 @@ extern "C" {
 #define OUTPUTFUNCMASK 0b11110000
 #define OUTPUTFREQMASK 0b00001111
 
+#define OUTPUTERR_OVERCURRENT_CH1         (0x00000001u)
+#define OUTPUTERR_SHORTCIRCUIT_CH1        (0x00000002u)
+#define OUTPUTERR_OVERCURRENT_CH2         (0x00000010u)
+#define OUTPUTERR_SHORTCIRCUIT_CH2        (0x00000020u)
+#define OUTPUTERR_OVERCURRENT_CH3         (0x00000100u)
+#define OUTPUTERR_SHORTCIRCUIT_CH3        (0x00000200u)
+#define OUTPUTERR_OVERCURRENT_CH4         (0x00001000u)
+#define OUTPUTERR_SHORTCIRCUIT_CH4        (0x00002000u)
+#define OUTPUTERR_OVERCURRENT_CH5         (0x00010000u)
+#define OUTPUTERR_SHORTCIRCUIT_CH5        (0x00020000u)
+#define OUTPUTERR_OVERCURRENT_CH6         (0x00100000u)
+#define OUTPUTERR_SHORTCIRCUIT_CH6        (0x00200000u)
+#define OUTPUTERR_GROUND_SHIFT            (0x01000000u)
+#define OUTPUTERR_OVER_TEMPERATURE        (0x02000000u)
+#define OUTPUTERR_TOTAL_CURRENT_EXCEEDED  (0x04000000u)
+#define OUTPUTERR_COMMUNICATION_TIMEOUT   (0x08000000u)
+#define OUTPUTERR_INIT_FAILURE            (0x10000000u)
+#define OUTPUTERR_NOT_COMMUNICATING       (0x20000000u)
+#define OUTPUTERR_CHECKSUM_ERRORS         (0x40000000u)
+
 /****************************************************************************************
  * Data declarations
  ****************************************************************************************/
