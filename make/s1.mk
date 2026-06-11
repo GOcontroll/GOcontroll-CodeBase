@@ -210,7 +210,7 @@ BIN := $(DEPLOY_DIR)/$(PROJECT).bin
 # copy of the current $(HEX).
 FIRMWARE := $(DEPLOY_DIR)/firmware.hex
 
-.PHONY: all build clean flash erase reset gdbserver debug rtt size help
+.PHONY: all build clean flash erase reset gdbserver debug rtt size stack-check help
 .DEFAULT_GOAL := all
 
 all: build
@@ -285,8 +285,12 @@ rtt:
 	@echo "  RTT  client (connect to running JLinkGDBServer or after flash)"
 	@$(JLINK_RTT)
 
+# Analyse .su files from the last build. Run 'make build' first.
+stack-check:
+	@python3 $(CODEBASE)/make/stack_check.py $(BUILD_DIR)
+
 help:
-	@echo "Targets:  all  clean  flash  erase  reset  gdbserver  debug  rtt  size"
+	@echo "Targets:  all  clean  flash  erase  reset  gdbserver  debug  rtt  size  stack-check"
 	@echo "Vars:     OPT=-Og|-O2|-O0   JLINK_DIR=<path>   JLINK_SPEED=<kHz>"
 
 -include $(DEPS)
