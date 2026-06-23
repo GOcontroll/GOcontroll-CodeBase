@@ -219,12 +219,20 @@ int GO_communication_modules_initialize(uint8_t moduleslot) {
 	}
 #endif
 
-	for (uint8_t i = 0; i < 5; i++) {	
-		GO_communication_modules_reset_state_module(moduleslot, 1);
-		GO_communication_modules_delay_1ms(2);
-		GO_communication_modules_reset_state_module(moduleslot, 0);
-		GO_communication_modules_delay_1ms(2);
-		
+	/* Reset the module EXACTLY ONCE — not on every retry iteration. The module's
+	 * bootloader opens a short window after a single reset and leaves it only on
+	 * a *clean* escape command; a corrupt/failed escape keeps the module in the
+	 * bootloader, so the handshake below can simply be retried. Re-asserting reset
+	 * on every iteration instead throws the module back into the bootloader and
+	 * fights its own boot timing — observed to intermittently block detection of
+	 * the slot-1 module while slot 2 (which succeeded on the first try) worked.
+	 * Retry only the bootloader-escape handshake below; never the reset. */
+	GO_communication_modules_reset_state_module(moduleslot, 1);
+	GO_communication_modules_delay_1ms(2);
+	GO_communication_modules_reset_state_module(moduleslot, 0);
+	GO_communication_modules_delay_1ms(2);
+
+	for (uint8_t i = 0; i < 5; i++) {
 		uint8_t dataTxBoot[BOOTMESSAGELENGTHCHECK] = {0};
 		uint8_t dataRxBoot[BOOTMESSAGELENGTHCHECK] = {0};
 

@@ -121,6 +121,19 @@ examples/    Self-contained main()s, one per topic (Linux only at present)
     info task itself — cosmetic only).
     See `code/GO_board.c:242`.
 
+13. **A module is reset exactly ONCE during `GO_communication_modules_initialize`.**
+    The reset (assert→release of the module's reset line) must be issued a single
+    time, **before** the bootloader-escape retry loop — never inside it. A module's
+    bootloader opens a short window after one reset and leaves it only on a *clean*
+    escape command; a corrupt or failed escape keeps the module in the bootloader,
+    so the handshake can simply be retried. Re-asserting reset on every retry
+    iteration instead throws the module back into the bootloader and fights its own
+    boot timing, which **intermittently prevents detection**: typically one slot's
+    module never registers (all its channels read 0) while an identical module in
+    another slot — one that happened to succeed on the first try — works fine.
+    The retry loop must retry only the escape handshake, not the reset.
+    See `code/GO_communication_modules.c` (`GO_communication_modules_initialize`).
+
 ---
 
 ## Where to look
@@ -155,6 +168,10 @@ The source-of-truth lives in:
 - **Link error `undefined reference to model_step_thread`** → the
   application did not define the `osThreadId_t model_step_thread` global
   that the controller-info task reads. See rule 12.
+- **One module never detected (all its channels read 0) while an identical
+  module in another slot works** → the reset was issued *inside* the
+  bootloader-escape retry loop (resetting the module up to 5×) instead of once
+  before it. See rule 13.
 
 ---
 
