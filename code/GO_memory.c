@@ -51,6 +51,7 @@
 #ifdef GOCONTROLL_IOT
 
 #include "stm32h5xx_hal.h"
+#include "cmsis_os2.h"
 
 /***************  Flash NVM layout  *******************************************
  * Bank 2, last 4 sectors (each 8 KB, 16-byte quad-word write granularity).
@@ -105,6 +106,33 @@ static uint32_t s_emu_seq;        /* global write-sequence counter         */
 
 static uint32_t s_dtc_active;     /* base address of the active DTC page  */
 static uint32_t s_dtc_write_idx;  /* next free slot index in active page   */
+
+/* Serializes every flash-touching emulation operation. The NVM read/write API
+ * is called concurrently from many FreeRTOS tasks; HAL_FLASH_Unlock/Program/
+ * Erase is global and non-reentrant, the s_emu_write_idx append counter is a
+ * shared RMW, and on the STM32H5 a read of a flash bank mid-program/erase
+ * stalls or bus-faults. Without this lock, two tasks touching NVM at once
+ * corrupt the page index or wedge the flash controller -> the system hangs.
+ * A recursive + priority-inheriting mutex is used so a future internal caller
+ * may re-enter; created in GO_memory_emulation_initialize(). The NULL guard in
+ * the lock/unlock helpers keeps the pre-scheduler init calls (single-threaded,
+ * before osKernelStart) safe and lock-free. */
+static osMutexId_t s_emu_mutex = NULL;
+
+static const osMutexAttr_t s_emu_mutex_attr = {
+	.name      = "nvm_emu",
+	.attr_bits = osMutexRecursive | osMutexPrioInherit,
+	.cb_mem    = NULL,
+	.cb_size   = 0U,
+};
+
+static inline void emu_lock(void) {
+	if (s_emu_mutex != NULL) { (void)osMutexAcquire(s_emu_mutex, osWaitForever); }
+}
+
+static inline void emu_unlock(void) {
+	if (s_emu_mutex != NULL) { (void)osMutexRelease(s_emu_mutex); }
+}
 
 /***************  Internal helpers  *******************************************/
 
@@ -277,6 +305,12 @@ static void dtc_compact(uint32_t src, uint32_t dst) {
 ** \return    none
 ***************************************************************************************/
 void GO_memory_emulation_initialize(void) {
+	/* Create the NVM lock before any task can touch flash (init runs in main(),
+	 * before osKernelStart). Idempotent via the NULL guard. */
+	if (s_emu_mutex == NULL) {
+		s_emu_mutex = osMutexNew(&s_emu_mutex_attr);
+	}
+
 	uint32_t idx_a = emu_find_write_idx(NVM_EMU_PAGE_A_ADDR);
 	uint32_t idx_b = emu_find_write_idx(NVM_EMU_PAGE_B_ADDR);
 
@@ -324,7 +358,10 @@ void GO_memory_emulation_initialize(void) {
 ** \param     oldValue  previous value; updated on write. Pass NULL on first init.
 ** \return    none
 ***************************************************************************************/
-void GO_memory_emulation_write(char *key, float value, float *oldValue) {
+static void emu_read_unlocked(char *key, float *value);
+
+/* Unlocked core — callers must hold s_emu_mutex (see GO_memory_emulation_write). */
+static void emu_write_unlocked(char *key, float value, float *oldValue) {
 	if (oldValue != NULL) {
 		if (value == *oldValue) {
 			return;  /* value unchanged — skip write */
@@ -333,7 +370,7 @@ void GO_memory_emulation_write(char *key, float value, float *oldValue) {
 	} else {
 		/* Initialisation call: skip write if a value is already stored */
 		float stored = (float)0xffffffff;
-		GO_memory_emulation_read(key, &stored);
+		emu_read_unlocked(key, &stored);
 		if (stored != (float)0xffffffff) {
 			return;
 		}
@@ -362,6 +399,12 @@ void GO_memory_emulation_write(char *key, float value, float *oldValue) {
 	s_emu_write_idx++;
 }
 
+void GO_memory_emulation_write(char *key, float value, float *oldValue) {
+	emu_lock();
+	emu_write_unlocked(key, value, oldValue);
+	emu_unlock();
+}
+
 /**************************************************************************************
 ** \brief     Read a key-value pair from persistent storage.
 **            Linux:  key is a file path.
@@ -370,7 +413,8 @@ void GO_memory_emulation_write(char *key, float value, float *oldValue) {
 ** \param     value  output pointer; unchanged if the key is not found
 ** \return    none
 ***************************************************************************************/
-void GO_memory_emulation_read(char *key, float *value) {
+/* Unlocked core — callers must hold s_emu_mutex (see GO_memory_emulation_read). */
+static void emu_read_unlocked(char *key, float *value) {
 	uint32_t h = nvm_hash(key);
 
 	/* Scan from end to beginning — last written entry for this key wins */
@@ -383,6 +427,12 @@ void GO_memory_emulation_read(char *key, float *value) {
 		}
 	}
 	/* Key not found — leave *value unchanged */
+}
+
+void GO_memory_emulation_read(char *key, float *value) {
+	emu_lock();
+	emu_read_unlocked(key, value);
+	emu_unlock();
 }
 
 /***************  MemoryDiagnostic  *******************************************/
