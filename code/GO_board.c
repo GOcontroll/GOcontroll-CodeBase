@@ -254,7 +254,10 @@ uint32_t go_board_xcp_stack_hwm   = 0;
 uint32_t go_board_free_heap       = 0;
 uint8_t  go_board_cpu_load        = 0;
 
-#define CONTROLLER_INFO_MAX_TASKS  16u
+/* Must be >= the total number of live FreeRTOS tasks, otherwise
+ * uxTaskGetSystemState() returns 0 and the CPU-load / per-task stack telemetry
+ * below is silently skipped. This app spawns ~27 tasks; 32 leaves headroom. */
+#define CONTROLLER_INFO_MAX_TASKS  32u
 static TaskStatus_t               s_task_status[CONTROLLER_INFO_MAX_TASKS];
 
 static void AccInit(void) {
@@ -339,15 +342,29 @@ static void ControllerInfoTask(void *args) {
 			    ? (uint32_t)uxTaskGetStackHighWaterMark((TaskHandle_t)xcp_thread) * sizeof(StackType_t)
 			    : 0u;
 			go_board_free_heap = (uint32_t)xPortGetFreeHeapSize();
-			//SEGGER_RTT_printf(0, "[Stack] model_step: %u bytes free\n", go_board_model_stack_hwm);
-			//SEGGER_RTT_printf(0, "[Stack] xcp_thread: %u bytes free\n", go_board_xcp_stack_hwm);
-			//SEGGER_RTT_printf(0, "[Heap]  free: %u bytes, min ever: %u bytes\n",
-			//                  go_board_free_heap,
-			//                  (unsigned)xPortGetMinimumEverFreeHeapSize());
+
+			/* --- DIAGNOSTIC TELEMETRY (hang hunt) --------------------------
+			 * Free-heap trend distinguishes a leak (min-ever falls toward 0)
+			 * from a stack overflow; the per-task table below shows which task
+			 * is running out of stack BEFORE the overflow hook fires. Remove
+			 * this block (and revert CONTROLLER_INFO_MAX_TASKS) once resolved. */
+			SEGGER_RTT_printf(0, "[Heap]  free: %u  min-ever: %u\n",
+			                  (unsigned)go_board_free_heap,
+			                  (unsigned)xPortGetMinimumEverFreeHeapSize());
+
 			uint32_t    totalRunTime;
 			UBaseType_t n = uxTaskGetSystemState(s_task_status,
 			                                     CONTROLLER_INFO_MAX_TASKS,
 			                                     &totalRunTime);
+
+			/* Per-task minimum free stack ever (bytes). Any task trending to a
+			 * small number is the overflow candidate. */
+			for (UBaseType_t i = 0u; i < n; i++) {
+				SEGGER_RTT_printf(0, "[Stack] %-16s %u\n",
+				                  s_task_status[i].pcTaskName,
+				                  (unsigned)(s_task_status[i].usStackHighWaterMark
+				                             * sizeof(StackType_t)));
+			}
 			if (n > 0u && totalRunTime > 0u) {
 				uint32_t total_delta = totalRunTime - prev_total_time;
 				if (total_delta > 0u) {

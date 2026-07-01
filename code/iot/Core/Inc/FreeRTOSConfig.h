@@ -77,7 +77,11 @@ extern uint32_t SystemCoreClock;
 #define configTICK_RATE_HZ                       ((TickType_t)1000)
 #define configMAX_PRIORITIES                     ( 56 )
 #define configMINIMAL_STACK_SIZE                 ((uint16_t)128)
-#define configTOTAL_HEAP_SIZE                    ((size_t)24576)
+/* 64 KB. The STM32H573 has 640 KB SRAM (build uses ~6%), so the previous 24 KB
+ * left almost no margin: with ~27 tasks the min-ever free heap fell to ~4.5 KB,
+ * forcing publish-task stacks so tight that the %f-snprintf path overflowed
+ * (-> stack-overflow hook -> hang). Ample RAM is available; give the heap room. */
+#define configTOTAL_HEAP_SIZE                    ((size_t)65536)
 #define configSTACK_ALLOCATION_FROM_SEPARATE_HEAP 0
 #define configMAX_TASK_NAME_LEN                  ( 16 )
 #define configUSE_TRACE_FACILITY                 1
