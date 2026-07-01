@@ -39,8 +39,13 @@ BUILD_DIR  ?= build
 DEPLOY_DIR ?= deploy
 UNIT_DIRS  ?=
 
-# ----- Shell (Windows: use Git Bash so mkdir -p / rm -rf work) ---------------
+# ----- Shell -------------------------------------------------------------
+# Windows: use Git Bash so mkdir -p / rm -rf work. Linux/macOS: system bash.
+ifeq ($(OS),Windows_NT)
 SHELL := C:/PROGRA~1/Git/usr/bin/bash.exe
+else
+SHELL := /bin/bash
+endif
 
 TARGET_MCU := STM32H573xx
 CHIP_JLINK := STM32H573RI
@@ -55,13 +60,24 @@ OBJCOPY := $(CROSS_COMPILE)objcopy
 SIZE    := $(CROSS_COMPILE)size
 GDB     := $(CROSS_COMPILE)gdb
 
-# J-Link CLI - installed under "Program Files\SEGGER\JLink_Vxxx\".
-# Override on the command line if your install path or version differs:
+# J-Link CLI.
+# Windows: installed under "Program Files\SEGGER\JLink_Vxxx\". Override on the
+# command line if your install path or version differs:
 #   make flash JLINK_DIR="C:/Program Files/SEGGER/JLink_V880"
+# Linux: the SEGGER .deb symlinks JLinkExe/JLinkGDBServerCLExe/JLinkRTTClientExe
+# onto PATH, so JLINK_DIR is empty by default. Set it for a non-standard install:
+#   make flash JLINK_DIR=/opt/SEGGER/JLink
+ifeq ($(OS),Windows_NT)
 JLINK_DIR    ?= C:/Program Files/SEGGER/JLink_V876
 JLINK        := "$(JLINK_DIR)/JLink.exe"
 JLINK_GDB    := "$(JLINK_DIR)/JLinkGDBServerCL.exe"
 JLINK_RTT    := "$(JLINK_DIR)/JLinkRTTClient.exe"
+else
+JLINK_DIR    ?=
+JLINK        := $(if $(JLINK_DIR),$(JLINK_DIR)/JLinkExe,JLinkExe)
+JLINK_GDB    := $(if $(JLINK_DIR),$(JLINK_DIR)/JLinkGDBServerCLExe,JLinkGDBServerCLExe)
+JLINK_RTT    := $(if $(JLINK_DIR),$(JLINK_DIR)/JLinkRTTClientExe,JLinkRTTClientExe)
+endif
 JLINK_IF     ?= SWD
 JLINK_SPEED  ?= 4000
 
