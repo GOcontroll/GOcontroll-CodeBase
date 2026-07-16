@@ -28,6 +28,7 @@
 #   make gdbserver  Start JLinkGDBServer in foreground (port 2331).
 #   make debug      Start arm-none-eabi-gdb attached to gdbserver and loaded.
 #   make rtt        Open JLinkRTTClient (after a build/flash with RTT enabled).
+#   make rtt_watch  Heap/stack critical monitor — hides noise, shows only events.
 #   make size       Print section sizes of the ELF.
 # =============================================================================
 
@@ -226,7 +227,7 @@ BIN := $(DEPLOY_DIR)/$(PROJECT).bin
 # copy of the current $(HEX).
 FIRMWARE := $(DEPLOY_DIR)/firmware.hex
 
-.PHONY: all build clean flash erase reset gdbserver debug rtt size stack-check help
+.PHONY: all build clean flash erase reset gdbserver debug rtt rtt_watch size stack-check help
 .DEFAULT_GOAL := all
 
 all: build
@@ -301,12 +302,29 @@ rtt:
 	@echo "  RTT  client (connect to running JLinkGDBServer or after flash)"
 	@$(JLINK_RTT)
 
+# Heap/stack critical monitor — shows only memory events, hides all other output.
+# Requires JLinkGDBServer on telnet port 19021 (make gdbserver in a second terminal).
+# AUTO=1    start JLinkGDBServer automatically (single terminal)
+# VERBOSE=1 also show OK (green) heap/stack readings
+rtt_watch:
+	@echo "  RTT-WATCH  heap/stack monitor (Ctrl-C to stop)"
+	@echo "             heap warn<4096B crit<1024B  |  stack warn<64w crit<16w"
+	@python3 $(CODEBASE)/make/rtt_watch.py \
+	    --jlink-dir "$(JLINK_DIR)" \
+	    --device $(CHIP_JLINK) \
+	    --jlink-if $(JLINK_IF) \
+	    --speed $(JLINK_SPEED) \
+	    $(if $(AUTO),--auto,) \
+	    $(if $(VERBOSE),--verbose,)
+
 # Analyse .su files from the last build. Run 'make build' first.
 stack-check:
 	@python3 $(CODEBASE)/make/stack_check.py $(BUILD_DIR)
 
 help:
-	@echo "Targets:  all  clean  flash  erase  reset  gdbserver  debug  rtt  size  stack-check"
+	@echo "Targets:  all  clean  flash  erase  reset  gdbserver  debug  rtt  rtt_watch  size  stack-check"
 	@echo "Vars:     OPT=-Og|-O2|-O0   JLINK_DIR=<path>   JLINK_SPEED=<kHz>"
+	@echo "          AUTO=1  (rtt_watch: start gdbserver automatically)"
+	@echo "          VERBOSE=1  (rtt_watch: also show OK heap/stack values)"
 
 -include $(DEPS)
