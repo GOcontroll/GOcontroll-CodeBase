@@ -66,13 +66,23 @@ extern "C" {
 	2  // high side switching duty cycle controlled
 #define OUTPUTFUNC_10CH_HIGHSIDEBOOL 3	// high side switching on or off (0-1)
 
+/* Duty cycle frequencies. 100 Hz - 1 kHz are supported by both the 6 and the
+ * 10 channel module; 2 kHz and up are 6 channel only. On the 10 channel module
+ * 100 Hz is deprecated as of 2026-07-23 — its published range is 200 Hz - 1 kHz
+ * — but still accepted so existing field configurations keep working. */
 #define OUTPUTFREQ_100HZ 1		// duty cycle frequency
 #define OUTPUTFREQ_200HZ 2		// duty cycle frequency
-#define OUTPUTFREQ_6CH_500HZ 3	// duty cycle frequency (6 channel module only)
-#define OUTPUTFREQ_6CH_1KHZ 4	// duty cycle frequency (6 channel module only)
+#define OUTPUTFREQ_500HZ 3		// duty cycle frequency
+#define OUTPUTFREQ_1KHZ 4		// duty cycle frequency
 #define OUTPUTFREQ_6CH_2KHZ 5	// duty cycle frequency (6 channel module only)
 #define OUTPUTFREQ_6CH_5KHZ 6	// duty cycle frequency (6 channel module only)
 #define OUTPUTFREQ_6CH_10KHZ 7	// duty cycle frequency (6 channel module only)
+
+/* Deprecated aliases: 500 Hz and 1 kHz turned out to be supported by the 10
+ * channel module too, so the _6CH_ prefix is misleading. Kept so existing
+ * sources keep building. */
+#define OUTPUTFREQ_6CH_500HZ OUTPUTFREQ_500HZ
+#define OUTPUTFREQ_6CH_1KHZ OUTPUTFREQ_1KHZ
 
 #define PEAKCURRENTMAX 3500	 // max allowed duty cycle
 #define CURRENTMAXMAX 4000	 // max allowed current through a channel

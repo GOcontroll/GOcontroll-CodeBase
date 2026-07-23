@@ -399,7 +399,12 @@ int GO_module_output_configure_frequency(_outputModule* outputModule,
 				outputModule->moduleSlot + 1, channel);
 			return -EINVAL;
 		}
-		if ((frequency == 0) || (frequency > 2)) {
+		/* The 10 channel module supports 100 Hz, 200 Hz, 500 Hz and 1 kHz
+		 * (prescalers 830/415/167/84 at Period 1000 in the module firmware).
+		 * 100 Hz (OUTPUTFREQ_100HZ) is deprecated as of 2026-07-23 — the
+		 * published specification of the module is 200 Hz - 1 kHz — but is
+		 * still accepted here so existing field configurations keep working. */
+		if ((frequency == 0) || (frequency > 4)) {
 			err("Configured frequency on frequency channel %d, output module "
 				"in "
 				"slot %d, is out of range, please use the macros to configure "
