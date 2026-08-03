@@ -72,6 +72,27 @@ extern "C" {
 #define MESSAGEOVERLENGTH				1
 
 /****************************************************************************************
+ * Macro definitions (Module reset)
+ ****************************************************************************************/
+/* Reset-assert pulse width used by GO_communication_modules_reset_module().
+ *
+ * A 2 ms pulse resets the input module fine, but is too short to force an already-RUNNING
+ * output module back into its bootloader: the module keeps running its application and
+ * detection then reads live app frames ("message incorrect") instead of 9,45,9.
+ *
+ * History worth keeping: this was briefly raised to 3000 ms (the ~2.79 s a cold boot
+ * happens to hold reset, measured on the logic analyzer) while the reset line itself was
+ * under suspicion. That turned out to be a WIRING fault on slot 1 — the pulse reached the
+ * wrong module — not a pulse-width problem. With the wiring fixed, a much shorter pulse
+ * suffices; the bring-up is serialised, so this delay is paid once per module slot.
+ *
+ * Tune against the module firmware's real bootloader window. Override at build time with
+ * -DMODULE_RESET_ASSERT_MS=<ms> — no need to edit this shared file. */
+#ifndef MODULE_RESET_ASSERT_MS
+#define MODULE_RESET_ASSERT_MS			250u
+#endif
+
+/****************************************************************************************
  * Macro definitions (Hardware configuration)
  ****************************************************************************************/
 #define NOT_INSTALLED	0
@@ -114,6 +135,14 @@ uint8_t GO_communication_modules_checksum_calculator(uint8_t *array, uint8_t len
 int GO_communication_modules_initialize(uint8_t moduleslot);
 
 /**************************************************************************************
+** \brief     One-time SPI priming (throwaway transfer) so the first real module transfer
+**            is not the one that initializes the peripheral. Ports the Linux DummySpiSend();
+**            prevents the output module's slave from staying a byte out of phase. Call once
+**            before the first module transaction. (STM32/IOT only.)
+***************************************************************************************/
+void GO_communication_modules_dummy_spi(uint8_t module);
+
+/**************************************************************************************
 ** \brief     Register a detected module in the hardware config table.
 ** \param     slot  Module slot index (0-7).
 ** \param     rx    Bootloader RX buffer containing firmware info.
@@ -135,6 +164,24 @@ void GO_communication_modules_delay_1ms(uint32_t times);
 ** \return    0 on success, -1 on failure.
 ***************************************************************************************/
 int8_t GO_communication_modules_reset_state_module(uint8_t module, uint8_t state);
+
+/**************************************************************************************
+** \brief     Assert a module's reset line for assert_ms, then release it.
+**
+**            The single shared hardware-reset implementation. Use this instead of
+**            hand-rolling reset_state_module(1) / delay / reset_state_module(0), so the
+**            bootloader-detection path and any application-level recovery path cannot
+**            drift apart in pulse width or ordering.
+**
+**            On IOT the actual pad level is sampled while asserted and after release, so
+**            a reset line that never moves is reported instead of silently producing a
+**            module that stays in its application.
+**
+** \param     moduleslot  Slot index (0-based).
+** \param     assert_ms   Reset-assert pulse width in ms (see MODULE_RESET_ASSERT_MS).
+** \return    0 on success, -1 when the pad did not follow the requested level.
+***************************************************************************************/
+int8_t GO_communication_modules_reset_module(uint8_t moduleslot, uint32_t assert_ms);
 
 /**************************************************************************************
 ** \brief     Get a module out of its bootloader state.

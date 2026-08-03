@@ -76,6 +76,26 @@
 #define LOW		0
 #define HIGH	1
 
+/* Timing for the bootloader-escape handshake in GO_communication_modules_initialize().
+ * Two INDEPENDENT constraints (see that function for the mechanism):
+ *   - MODULE_BOOT_SETTLE_MS: settle after reset-release before the first escape. Must be
+ *     long enough for the module's SPI-DMA re-arm (runs off a 1 ms poll task), yet short
+ *     enough that the escape still lands inside the bootloader's open window after reset —
+ *     miss it and the module boots into its application and answers with a non-9,45,9 frame.
+ *   - MODULE_ESCAPE_GAP_MS: rest between the two back-to-back escapes so the slave can
+ *     re-arm its DMA before being clocked again (larger matters for the heavily-loaded
+ *     output module).
+ * Starting point: 1 ms each — tune against the module firmware's real window / re-arm time. */
+/* 100 ms: the output module needs ~100 ms after reset-release to reach its bootloader
+ * and drive MISO — clocking it earlier reads a not-ready slave (all-0x01 bytes). Measured
+ * on the logic analyzer: a reset-release -> escape gap of ~110 ms reliably read 9,45,9. */
+#define MODULE_BOOT_SETTLE_MS	100u
+#define MODULE_ESCAPE_GAP_MS	10u
+
+/* Settle after releasing reset before the pad level is sampled / the bus is touched.
+ * (MODULE_RESET_ASSERT_MS lives in the header — callers outside this file need it too.) */
+#define MODULE_RESET_SETTLE_MS	2u
+
 /****************************************************************************************
  * Data declarations
  ****************************************************************************************/
@@ -83,15 +103,93 @@ _hardwareConfig hardwareConfig;
 
 #ifdef GOCONTROLL_IOT
 static osSemaphoreId_t s_spi_done = NULL;
+/* Result of the last DMA transfer, written by the HAL completion/error callbacks
+ * and read back by GO_communication_modules_spi_wait(): 0 = completed OK,
+ * -1 = the peripheral reported an error (OVR/MODF/FRE/DMA). */
+static volatile int s_spi_status = 0;
 
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
 	(void)hspi;
+	s_spi_status = 0;
 	osSemaphoreRelease(s_spi_done);
 }
 
 void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
 	(void)hspi;
+	s_spi_status = 0;
 	osSemaphoreRelease(s_spi_done);
+}
+
+/* Without this the HAL calls the empty __weak error callback, the completion
+ * semaphore is never released, and every module transfer burns the full 500 ms
+ * timeout. Flag the error and wake the waiting task so it can abort the bus. */
+void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi) {
+	(void)hspi;
+	s_spi_status = -1;
+	osSemaphoreRelease(s_spi_done);
+}
+
+/* Drain any stale completion token left by a previously timed-out transfer, so
+ * the next acquire waits for THIS transfer rather than returning immediately
+ * (which would drop CS mid-frame). */
+static void GO_communication_modules_spi_drain(void) {
+	while (osSemaphoreAcquire(s_spi_done, 0) == osOK) {
+	}
+	/* Also flush any stale byte left in the SPI hardware RX FIFO. A residual RX byte at
+	 * the start of the next transfer makes the DMA read [stale, frame...]: the whole frame
+	 * lands one byte late (observed: leading 0x01, e.g. 1,43,2,22,4,1 read as 1,1,43,2,22,4,1)
+	 * and the module checksum fails. This is the warm output-module "byte shift" — the DMA
+	 * completes but the data is offset by one. */
+	while (__HAL_SPI_GET_FLAG(&hspi1, SPI_FLAG_RXP)) {
+		(void)(*(__IO uint8_t *)&hspi1.Instance->RXDR);
+	}
+}
+
+/* Block until the running DMA transfer signals completion. On timeout or a
+ * reported bus error, abort the SPI so the peripheral leaves its BUSY/ERROR
+ * state and returns to READY — otherwise the next HAL_SPI_*_DMA() call returns
+ * HAL_BUSY forever and the module bus stays dead. Returns 0 on success, -1
+ * otherwise. */
+/* A module SPI frame is < 1 ms on the wire (≤ 61 bytes @ ≥ 500 kHz) plus the
+ * module's ~150 us turnaround, so a healthy transfer completes in well under a
+ * millisecond. The old 500 ms guard meant a NON-responding module (bus held / no
+ * clocking) stalled every single transfer for half a second while slot_1 kept the
+ * bus mutex held — starving slot_2 out of the loop. A short guard fails fast so one
+ * dead module can no longer monopolise the shared bus. */
+#define SPI_XFER_TIMEOUT_MS  25u
+static int GO_communication_modules_spi_wait(void) {
+	if (osSemaphoreAcquire(s_spi_done, SPI_XFER_TIMEOUT_MS) != osOK) {
+		err("SPI transfer timed out — aborting module bus\n");
+		HAL_SPI_Abort(&hspi1);
+		return -1;
+	}
+	if (s_spi_status != 0) {
+		err("SPI transfer error — aborting module bus\n");
+		HAL_SPI_Abort(&hspi1);
+		return -1;
+	}
+	return 0;
+}
+
+/* Prime a module's SPI slave (ports the Linux GocontrollProcessorboard DummySpiSend()): one
+ * throwaway CS-asserted transfer so the first REAL transfer to the module is not the one that
+ * lands a byte late (the STM32H5 output-module "byte shift"). Learned on hardware:
+ *   - CS must be ASSERTED (a CS-high peripheral-only prime does NOT re-phase the slave).
+ *   - It only re-phases when it is the FIRST transfer to a RUNNING (app) slave — i.e. right
+ *     after a reset+boot. Sending it into a module still in its BOOTLOADER (cold start) corrupts
+ *     detection, so this MUST NOT run on the cold reset+detect path — only in the warm adopt
+ *     path, after a fresh reset that reboots the app. Transmit-only; response irrelevant. */
+void GO_communication_modules_dummy_spi(uint8_t module) {
+	uint8_t dummy[5] = {1, 2, 3, 4, 5};
+	if (module == 0) {
+		HAL_GPIO_WritePin(SPI_MOD1_CS_GPIO_Port, SPI_MOD1_CS_Pin, GPIO_PIN_RESET);
+		(void)HAL_SPI_Transmit(&hspi1, &dummy[0], 5, 100);
+		HAL_GPIO_WritePin(SPI_MOD1_CS_GPIO_Port, SPI_MOD1_CS_Pin, GPIO_PIN_SET);
+	} else if (module == 1) {
+		HAL_GPIO_WritePin(SPI_MOD2_CS_GPIO_Port, SPI_MOD2_CS_Pin, GPIO_PIN_RESET);
+		(void)HAL_SPI_Transmit(&hspi1, &dummy[0], 5, 100);
+		HAL_GPIO_WritePin(SPI_MOD2_CS_GPIO_Port, SPI_MOD2_CS_Pin, GPIO_PIN_SET);
+	}
 }
 #endif /* GOCONTROLL_IOT */
 
@@ -227,19 +325,33 @@ int GO_communication_modules_initialize(uint8_t moduleslot) {
 	 * fights its own boot timing — observed to intermittently block detection of
 	 * the slot-1 module while slot 2 (which succeeded on the first try) worked.
 	 * Retry only the bootloader-escape handshake below; never the reset. */
-	GO_communication_modules_reset_state_module(moduleslot, 1);
-	GO_communication_modules_delay_1ms(2);
-	GO_communication_modules_reset_state_module(moduleslot, 0);
-	GO_communication_modules_delay_1ms(2);
+	/* Single shared reset implementation — see MODULE_RESET_ASSERT_MS for why the pulse
+	 * is as wide as it is, and GO_communication_modules_reset_module() for the pad-level
+	 * verification. A failing return means the reset line never moved; detection below is
+	 * then guaranteed to read live application frames, so say so instead of silently
+	 * spending five retries on it. */
+	if (GO_communication_modules_reset_module(moduleslot, MODULE_RESET_ASSERT_MS) != 0) {
+		err("module %d: reset line fault — bootloader detection will not work\n",
+			moduleslot + 1);
+	}
 
 	for (uint8_t i = 0; i < 5; i++) {
 		uint8_t dataTxBoot[BOOTMESSAGELENGTHCHECK] = {0};
 		uint8_t dataRxBoot[BOOTMESSAGELENGTHCHECK] = {0};
 
+		/* Let the slave finish re-arming its SPI-DMA from the reset / previous escape
+		 * before clocking the next transfer. The module defers its DMA re-arm to a
+		 * 1 ms polling task; under heavy on-module interrupt load (e.g. the output
+		 * module's 10 us control + supply-ramp timers) that re-arm lags, and clocking
+		 * a not-yet-re-armed slave makes it shift out mis-aligned data (a 1-bit slip,
+		 * e.g. module id 20,20,2 read back as 40,40,4). Spacing the escapes out keeps
+		 * the slave in step. */
+		GO_communication_modules_delay_1ms(MODULE_BOOT_SETTLE_MS);
+
 		res = GO_communication_modules_escape_from_bootloader(
 			moduleslot, dataTxBoot, dataRxBoot);
 
-		dbg("bootloader:\n[");
+		dbg("slot %d bootloader:\n[", moduleslot + 1);
 		for (uint8_t j = 0; j < BOOTMESSAGELENGTH; j++) {
 			dbg("%d, ", dataRxBoot[j]);
 		}
@@ -266,10 +378,11 @@ int GO_communication_modules_initialize(uint8_t moduleslot) {
 		}
 		uint8_t dataTxFirm[BOOTMESSAGELENGTHCHECK] = {0};
 		uint8_t dataRxFirm[BOOTMESSAGELENGTHCHECK] = {0};
-		GO_communication_modules_delay_1ms(2);
+		/* Same re-arm settle as above, between the two back-to-back escapes. */
+		GO_communication_modules_delay_1ms(MODULE_ESCAPE_GAP_MS);
 		res = GO_communication_modules_escape_from_bootloader(
 			moduleslot, dataTxFirm, dataRxFirm);
-		dbg("firmware:\n[");
+		dbg("slot %d firmware:\n[", moduleslot + 1);
 		for (uint8_t j = 0; j <= dataRxFirm[1]; j++) {
 			dbg("%d, ", dataRxFirm[j]);
 		}
@@ -277,7 +390,7 @@ int GO_communication_modules_initialize(uint8_t moduleslot) {
 		if (!res && dataRxFirm[0] != 9 && dataRxFirm[2] != 9 &&
 			dataRxFirm[1] != 0) {
 			GO_communication_modules_register_module(moduleslot, dataRxBoot);
-			GO_communication_modules_delay_1ms(4);
+			GO_communication_modules_delay_1ms(3);
 			return 0;
 		}
 	}
@@ -346,6 +459,115 @@ int8_t GO_communication_modules_reset_state_module(uint8_t module, uint8_t state
 
 /****************************************************************************************/
 
+#ifdef GOCONTROLL_IOT
+/* Read the ACTUAL pad level of a module's reset line. The pin is an open-drain output,
+ * so reading IDR reports what the pad is really doing rather than what was written to
+ * ODR — which is exactly what is needed to prove the line moves at all. */
+static GPIO_PinState GO_communication_modules_reset_pin_level(uint8_t module) {
+	if (module == 0) {
+		return HAL_GPIO_ReadPin(MOD1_RESET_GPIO_Port, MOD1_RESET_Pin);
+	} else if (module == 1) {
+		return HAL_GPIO_ReadPin(MOD2_RESET_GPIO_Port, MOD2_RESET_Pin);
+	}
+	return GPIO_PIN_SET;
+}
+
+/* Raw GPIO register dump for a module's reset pin. HAL_GPIO_ReadPin() reports IDR, which
+ * reads 0 both when the pad is genuinely pulled low AND when the pin sits in analog mode
+ * (schmitt trigger disabled) — so IDR alone cannot distinguish "driving low" from "not
+ * driving at all". MODER/OTYPER/ODR settle that question. */
+static void GO_communication_modules_reset_pin_dump(uint8_t module, const char *when) {
+	GPIO_TypeDef *port;
+	uint16_t      mask;
+
+	if (module == 0) {
+		port = MOD1_RESET_GPIO_Port;
+		mask = MOD1_RESET_Pin;
+	} else if (module == 1) {
+		port = MOD2_RESET_GPIO_Port;
+		mask = MOD2_RESET_Pin;
+	} else {
+		return;
+	}
+
+	uint32_t bit = 0u;
+	for (uint16_t m = mask; m > 1u; m >>= 1) {
+		bit++;
+	}
+
+	/* mode: 0=input 1=output 2=alternate 3=analog | otype: 0=push-pull 1=open-drain
+	 * pupd: 0=none 1=pull-up 2=pull-down | odr = what we wrote | idr = what the pad reads */
+	dbg("module %d RESET pin (%s): bit=%lu mode=%lu otype=%lu pupd=%lu odr=%lu idr=%lu\n",
+		 module + 1, when, (unsigned long)bit,
+		 (unsigned long)((port->MODER  >> (bit * 2u)) & 3u),
+		 (unsigned long)((port->OTYPER >>  bit)       & 1u),
+		 (unsigned long)((port->PUPDR  >> (bit * 2u)) & 3u),
+		 (unsigned long)((port->ODR    >>  bit)       & 1u),
+		 (unsigned long)((port->IDR    >>  bit)       & 1u));
+}
+#endif
+
+/**************************************************************************************
+** \brief     Assert the module's reset line for assert_ms, then release it.
+**
+**            Single implementation of the hardware reset, shared by the bootloader
+**            detection path and by any application-level recovery/adopt path, so the
+**            two can never drift apart in pulse width or ordering.
+**
+**            On IOT the pad level is sampled back while reset is asserted and again
+**            after release. The reset pin is open-drain with a pull-up, so a failure to
+**            read LOW while asserted means the pad is not being driven at all — on the
+**            STM32H5 MOD1_RESET is PB4, which is also NJTRST, so an attached debugger
+**            holding the JTAG pins will produce exactly that.
+**
+** \param     moduleslot  Slot index (0-based).
+** \param     assert_ms   Reset-assert pulse width in milliseconds.
+** \return    0 when the pad was observed low while asserted and high after release,
+**            -1 otherwise (the reset line is not doing what was asked of it).
+***************************************************************************************/
+int8_t GO_communication_modules_reset_module(uint8_t moduleslot, uint32_t assert_ms) {
+	int8_t rc = 0;
+
+	GO_communication_modules_reset_state_module(moduleslot, 1);   /* assert = drive low */
+	GO_communication_modules_delay_1ms(1);
+
+#ifdef GOCONTROLL_IOT
+	/* Eenmalig per slot de rauwe registerstand, zodat "de pin gaat niet laag" op de
+	 * analyzer eenduidig te scheiden is van een MCU die hem wel degelijk laag trekt. */
+	static uint8_t s_dumped[8] = {0};
+	if (moduleslot < 8u && s_dumped[moduleslot] == 0u) {
+		s_dumped[moduleslot] = 1u;
+		GO_communication_modules_reset_pin_dump(moduleslot, "asserted");
+	}
+
+	if (GO_communication_modules_reset_pin_level(moduleslot) != GPIO_PIN_RESET) {
+		err("module %d: RESET line did not go LOW while asserted — pad is not driven "
+			"(MOD1_RESET is PB4 = NJTRST; check for an attached debugger)\n",
+			moduleslot + 1);
+		rc = -1;
+	}
+#endif
+
+	if (assert_ms > 1u) {
+		GO_communication_modules_delay_1ms(assert_ms - 1u);
+	}
+
+	GO_communication_modules_reset_state_module(moduleslot, 0);   /* release = pulled up */
+	GO_communication_modules_delay_1ms(MODULE_RESET_SETTLE_MS);
+
+#ifdef GOCONTROLL_IOT
+	if (GO_communication_modules_reset_pin_level(moduleslot) != GPIO_PIN_SET) {
+		err("module %d: RESET line stuck LOW after release — module is held in reset\n",
+			moduleslot + 1);
+		rc = -1;
+	}
+#endif
+
+	return rc;
+}
+
+/****************************************************************************************/
+
 /**************************************************************************************
 ** \brief     Get a module out of its bootloader state.
 ** \param     module  Slot index (0-7).
@@ -373,9 +595,18 @@ int GO_communication_modules_escape_from_bootloader(uint8_t module,
 						  GPIO_PIN_RESET);
 	}
 
+	/* Invalidate the length/checksum bytes so a stale response from a previous
+	 * transfer in this static buffer cannot masquerade as a valid reply if this
+	 * transfer fails. */
+	dataRx[1] = 0;
 	if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
-		HAL_SPI_TransmitReceive_DMA(&hspi1, &dataTx[0], &dataRx[0], BOOTMESSAGELENGTHCHECK);
-		osSemaphoreAcquire(s_spi_done, 500);
+		GO_communication_modules_spi_drain();
+		if (HAL_SPI_TransmitReceive_DMA(&hspi1, &dataTx[0], &dataRx[0],
+										BOOTMESSAGELENGTHCHECK) == HAL_OK) {
+			GO_communication_modules_spi_wait();
+		} else {
+			HAL_SPI_Abort(&hspi1);
+		}
 	} else {
 		HAL_SPI_TransmitReceive(&hspi1, &dataTx[0], &dataRx[0], BOOTMESSAGELENGTHCHECK, 100);
 	}
@@ -429,6 +660,7 @@ int GO_communication_modules_send_spi(uint8_t command, uint8_t dataLength,
 									 uint8_t id1, uint8_t id2, uint8_t id3,
 									 uint8_t id4, uint8_t module,
 									 uint8_t *dataTx, uint32_t delay) {
+	int rc = 0;
 	/* Platform-independent: build message header and checksum */
 	dataTx[0] = command;
 	dataTx[1] = dataLength - 1;
@@ -441,6 +673,21 @@ int GO_communication_modules_send_spi(uint8_t command, uint8_t dataLength,
 
 	/* Platform-specific: transmit */
 #ifdef GOCONTROLL_IOT
+	/* Pre-transmission delay — BEFORE asserting CS, not after.
+	 *
+	 * Callers use this as an INTER-MESSAGE settle: GO_module_output_configuration() passes
+	 * 500 us for the second initialization message "because the module needs to handle the
+	 * first message". Previously the delay sat between the CS assert and the transmit, so
+	 * CS was held low for the whole wait — and since 500 us rounds up to delay_1ms(1),
+	 * which is a full osDelay(1) under the scheduler, the slave saw CS go active and then
+	 * no clock for at least an entire RTOS tick. A slave that arms its SPI reception on the
+	 * CS falling edge cannot be expected to survive that, and the message is lost silently
+	 * because send_spi() never reads a response.
+	 *
+	 * Waiting first and only then framing the transfer gives the module the intended gap
+	 * while keeping the CS window tight around the actual clocking. */
+	GO_communication_modules_delay_1ms(delay / 1000 + (delay % 1000 != 0));
+
 	if (module == 0) {
 		HAL_GPIO_WritePin(SPI_MOD1_CS_GPIO_Port, SPI_MOD1_CS_Pin,
 						  GPIO_PIN_RESET);
@@ -449,13 +696,20 @@ int GO_communication_modules_send_spi(uint8_t command, uint8_t dataLength,
 						  GPIO_PIN_RESET);
 	}
 
-	/* Round delay in µs up to ms for HAL */
-	GO_communication_modules_delay_1ms(delay / 1000 + (delay % 1000 != 0));
 	if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
-		HAL_SPI_Transmit_DMA(&hspi1, &dataTx[0], dataLength + MESSAGEOVERLENGTH);
-		osSemaphoreAcquire(s_spi_done, 500);
+		GO_communication_modules_spi_drain();
+		if (HAL_SPI_Transmit_DMA(&hspi1, &dataTx[0],
+								 dataLength + MESSAGEOVERLENGTH) == HAL_OK) {
+			rc = GO_communication_modules_spi_wait();
+		} else {
+			HAL_SPI_Abort(&hspi1);
+			rc = -1;
+		}
 	} else {
-		HAL_SPI_Transmit(&hspi1, &dataTx[0], dataLength + MESSAGEOVERLENGTH, 100);
+		if (HAL_SPI_Transmit(&hspi1, &dataTx[0], dataLength + MESSAGEOVERLENGTH,
+							 100) != HAL_OK) {
+			rc = -1;
+		}
 	}
 
 	if (module == 0) {
@@ -469,7 +723,7 @@ int GO_communication_modules_send_spi(uint8_t command, uint8_t dataLength,
 		  dataLength + MESSAGEOVERLENGTH);
 #endif
 
-	return 0;
+	return rc;
 }
 
 /****************************************************************************************/
@@ -512,9 +766,18 @@ int GO_communication_modules_send_receive_spi(uint8_t command, uint8_t dataLengt
 						  GPIO_PIN_RESET);
 	}
 
+	/* Invalidate the length byte so a stale frame left in this static RX buffer
+	 * by a previous cycle cannot pass the checksum check below if this transfer
+	 * fails (e.g. after a timeout/abort). */
+	dataRx[1] = 0;
 	if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
-		HAL_SPI_TransmitReceive_DMA(&hspi1, &dataTx[0], &dataRx[0], dataLength + MESSAGEOVERLENGTH);
-		osSemaphoreAcquire(s_spi_done, 500);
+		GO_communication_modules_spi_drain();
+		if (HAL_SPI_TransmitReceive_DMA(&hspi1, &dataTx[0], &dataRx[0],
+										dataLength + MESSAGEOVERLENGTH) == HAL_OK) {
+			GO_communication_modules_spi_wait();
+		} else {
+			HAL_SPI_Abort(&hspi1);
+		}
 	} else {
 		HAL_SPI_TransmitReceive(&hspi1, &dataTx[0], &dataRx[0], dataLength + MESSAGEOVERLENGTH, 100);
 	}
