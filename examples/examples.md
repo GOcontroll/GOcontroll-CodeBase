@@ -1,6 +1,9 @@
-# GOcontroll Linux Examples
+# GOcontroll Examples
 
-Each example is a self-contained `main()` that can be built independently.
+Most examples are self-contained Linux `main()`s that can be built independently.
+Directories with an `_s1` suffix are **Moduline S1** (STM32H5 / FreeRTOS) examples: they are
+subsystems with an `*_init()` entry point rather than a `main()`, because all module I/O on
+S1 must run after `osKernelStart()`.
 
 ## Building an example
 
@@ -10,6 +13,10 @@ make <example_name>        # e.g. make led_blink
 
 The output binary is always placed at `build/app`.
 Cross-compile for ARM64 by prefixing `CC=aarch64-linux-gnu-gcc`.
+
+S1 examples are not covered by that target. Drop the file into an application unit
+directory (see `../make/README.md`), call its `*_init()` from `main()` before
+`osKernelStart()`, and build the application as usual.
 
 ---
 
@@ -37,6 +44,9 @@ examples/
 │   └── input_module_420ma.c
 ├── output_module_6ch/
 │   └── output_module_6ch.c
+├── output_module_6ch_s1/           # Moduline S1 (FreeRTOS)
+│   ├── output_module_6ch_s1.c
+│   └── output_module_6ch_s1.md
 ├── output_module_10ch/
 │   └── output_module_10ch.c
 └── bridge_module/
@@ -141,6 +151,30 @@ continuously from 0 to 100 % and back, at a PWM frequency of 1 kHz. Demonstrates
 per-channel current limits, PWM frequency configuration (`GO_module_output_configure_frequency`),
 and reading per-channel current feedback and module temperature after each
 `GO_module_output_send_values()` call.
+
+---
+
+### output_module_6ch_s1  *(Moduline S1)*
+
+#### `output_module_6ch_s1`
+The **canonical S1 bring-up procedure** for an output module, and the reference for anyone
+debugging a module that communicates perfectly but drives nothing. Drives CH1/CH2 as a
+half-bridge pair (a DC actuator between the two output pins) with a ramping duty cycle that
+reverses direction, and logs the five readings that localise a dead output.
+
+Every step is annotated with the failure it prevents: reset+detect exactly once, the settle
+delay that keeps the configuration out of the module's application-startup gap, uploading the
+configuration **once** and never again, and how to tell from the feedback whether the
+configuration actually reached the module — which a transmit-only `configuration() == 0`
+cannot tell you.
+
+Read `output_module_6ch_s1.md` alongside it: the procedure table with all timings, the
+diagnosis table, and the seven traps (frequency/function tables that are off by one against
+the SPI spec, the `peak_current` union, feedback-header validation, firmware-stamp-driven
+protocol selection, the S1 SPI `AFCNTR`/`NSSP` requirement, and the practical S1 details —
+stack size, bus mutex, module state surviving an MCU reflash).
+
+Implements AGENTS.md rules 2, 4, 8, 13, 14, 15 and 16.
 
 ---
 

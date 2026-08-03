@@ -16,7 +16,8 @@ flavours share the same public API:
 
 ```
 code/        Public C library — board, communication, modules, XCP, S1 subtree
-examples/    Self-contained main()s, one per topic (Linux only at present)
+examples/    One per topic — Linux main()s, plus S1 subsystems in *_s1/ directories
+make/        Generic Moduline S1 build layer (include from a thin application Makefile)
 AGENTS.md    Index for AI coding tools (hard rules + conventions)
 ```
 
@@ -33,6 +34,13 @@ or
 [`examples/input_module_6ch/input_module_6ch.c`](examples/input_module_6ch/input_module_6ch.c)
 (the latter has the most thorough inline documentation, including the
 required initialisation order).
+
+On a **Moduline S1**, start from
+[`examples/output_module_6ch_s1/output_module_6ch_s1.md`](examples/output_module_6ch_s1/output_module_6ch_s1.md)
+before writing module-output code. It is the canonical bring-up procedure —
+including the timings, how to verify that a configuration actually reached the
+module, and the diagnosis table for a module that communicates perfectly but
+drives nothing.
 
 ## Hardware
 
