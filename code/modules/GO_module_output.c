@@ -109,7 +109,9 @@ int GO_module_output_configuration(_outputModule* outputModule) {
 		}
 
 		/* The second initialization message is delayed by 500 us because the
-		 * module needs to handle the first message */
+		 * module needs to handle the first message. send_spi() takes that delay
+		 * BEFORE asserting CS (see the comment there about why keeping the CS
+		 * window tight around the clocking matters). */
 		if (outputModule->sw_version >= VERSIONSPIPROTOCOLV2_6CHANNELOUT) {
 			return GO_communication_modules_send_spi(
 				outputModule->moduleSlot + 1, OUTPUTMODULE6CHMESSAGELENGTH, 1,
@@ -166,6 +168,32 @@ int GO_module_output_send_values(_outputModule* outputModule) {
 				outputModule->moduleSlot, &outputModuleDataTx[0],
 				&outputModuleDataRx[0]);
 		}
+		/* Validate the response header, like the 10-channel branch below already does.
+		 * Without this, ANY frame with a valid checksum is parsed as feedback — an echo, or
+		 * the answer to a previous transaction — and temperature/current/duty are then
+		 * decoded from the wrong bytes while everything looks healthy. Expected for V2:
+		 * [2] = 2 (MOD->COM), [3] = 22 (output 6ch), [4] = 4 (feedback), [5] = 1 (index 1).
+		 * Only checked for V2; the legacy protocol uses a different header. */
+		if (res == 0 &&
+			outputModule->sw_version >= VERSIONSPIPROTOCOLV2_6CHANNELOUT &&
+			!(outputModuleDataRx[2] == 2 && outputModuleDataRx[3] == 22 &&
+			  outputModuleDataRx[4] == 4 && outputModuleDataRx[5] == 1)) {
+			/* Report the first mismatch, once. Rejecting a frame the checksum accepted is a
+			 * behaviour change, so if a firmware variant ever answers with a different
+			 * header this must be self-explaining rather than an unexplained comms failure. */
+			static uint8_t reported = 0;
+			if (!reported) {
+				reported = 1;
+				err("output module slot %d: unexpected feedback header "
+					"[%d,%d,%d,%d,%d,%d], expected [_,43,2,22,4,1] — frame rejected\n",
+					outputModule->moduleSlot + 1, outputModuleDataRx[0],
+					outputModuleDataRx[1], outputModuleDataRx[2],
+					outputModuleDataRx[3], outputModuleDataRx[4],
+					outputModuleDataRx[5]);
+			}
+			res = -EBADMSG;
+		}
+
 		if (res == 0) {
 			outputModule->temperature = *(int16_t*)&outputModuleDataRx[6];
 			outputModule->ground = *(int16_t*)&outputModuleDataRx[8];
@@ -418,16 +446,15 @@ int GO_module_output_configure_frequency(_outputModule* outputModule,
 			outputModule->moduleSlot + 1);
 		return -EINVAL;
 	}
-	// start configuring
-	// clear the frequency field
+	// A frequency "channel" addresses a pair of output channels; the two physical
+	// channels are at configuration[channel * 2] and configuration[channel * 2 + 1].
+	// Update each in place: keep its own function nibble (OUTPUTFUNCMASK) and write
+	// the frequency nibble. Reading/writing the SAME index preserves whatever
+	// GO_module_output_*ch_configure_channel already set for that channel, so the
+	// two calls are order-independent.
 	outputModule->configuration[channel * 2] =
-		outputModule->configuration[channel] & OUTPUTFUNCMASK;
+		(outputModule->configuration[channel * 2] & OUTPUTFUNCMASK) | frequency;
 	outputModule->configuration[channel * 2 + 1] =
-		outputModule->configuration[channel] & OUTPUTFUNCMASK;
-	// set the new values in the frequency field
-	outputModule->configuration[channel * 2] =
-		outputModule->configuration[channel] | frequency;
-	outputModule->configuration[channel * 2 + 1] =
-		outputModule->configuration[channel] | frequency;
+		(outputModule->configuration[channel * 2 + 1] & OUTPUTFUNCMASK) | frequency;
 	return 0;
 }
