@@ -51,13 +51,25 @@ void MX_SPI1_Init(void)
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi1.Init.CRCPolynomial = 0x7;
-  hspi1.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  /* Must be DISABLE. Together with MasterKeepIOState=ENABLE below this removes the
+   * spurious-clock/framing glitch that shifts every module SPI frame by a bit and
+   * breaks detection ("contested slot"). BOTH settings are required — NSSP enabled
+   * re-introduces a (different) shift even with AFCNTR=1. Do NOT re-enable. */
+  hspi1.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
   hspi1.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
   hspi1.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
   hspi1.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
   hspi1.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
   hspi1.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
-  hspi1.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
+  /* AFCNTR=1: keep SPI in control of SCK/MOSI when the peripheral is disabled
+   * between transfers. With DISABLE (AFCNTR=0) the H5 SPI released SCK to the GPIO
+   * and emitted a spurious clock edge at each SPE enable (measured on a logic
+   * analyzer: one stray SCK pulse right after CS-assert). That extra pulse desynced
+   * the module by 1 bit -> every module frame read back left-shifted (e.g. sig 9,45,9
+   * read as 18,18,90) -> bootloader detection failed with "contested slot" and no
+   * module ever came up. Required TOGETHER with NSSPMode=DISABLE above (enabling NSSP
+   * re-introduces a shift even with AFCNTR=1). Do NOT revert to DISABLE. */
+  hspi1.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_ENABLE;
   hspi1.Init.IOSwap = SPI_IO_SWAP_DISABLE;
   hspi1.Init.ReadyMasterManagement = SPI_RDY_MASTER_MANAGEMENT_INTERNALLY;
   hspi1.Init.ReadyPolarity = SPI_RDY_POLARITY_HIGH;
@@ -118,7 +130,10 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* spiHandle)
     GPIO_InitStruct.Pin = SPI_MOD_SCK_Pin|SPI_MOD_MISO_Pin|SPI_MOD_MOSI_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    /* SPI1 SCK runs at ~2 MHz (PLL2P / prescaler 128). GPIO_SPEED_FREQ_LOW gives
+     * slew rates too slow for clean edges at that clock over a module connector,
+     * causing marginal/unreliable sampling. HIGH keeps the edges crisp. */
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
