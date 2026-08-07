@@ -84,7 +84,7 @@ extern "C" {
 #define OUTPUTFREQ_6CH_500HZ OUTPUTFREQ_500HZ
 #define OUTPUTFREQ_6CH_1KHZ OUTPUTFREQ_1KHZ
 
-#define PEAKCURRENTMAX 3500	 // max allowed duty cycle
+#define PEAKCURRENTMAX 3500	 // max allowed peak current in mA (peak-and-hold)
 #define CURRENTMAXMAX 4000	 // max allowed current through a channel
 
 #define OUTPUTFREQCHANNEL1AND2 \
