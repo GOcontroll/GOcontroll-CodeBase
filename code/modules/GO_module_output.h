@@ -84,6 +84,17 @@ extern "C" {
 #define OUTPUTFREQ_6CH_500HZ OUTPUTFREQ_500HZ
 #define OUTPUTFREQ_6CH_1KHZ OUTPUTFREQ_1KHZ
 
+/* Hardware current ratings. These are properties of the modules, not of this API - the
+ * configurable limits below cannot raise them. The TOTAL is the binding one: six 6-channel
+ * outputs at 3.5 A each would be 21 A, which the module cannot deliver.
+ *
+ *   Module          per channel continuous   per channel max   total module
+ *   6 channel out   3.5 A                    4 A               15 A
+ *   10 channel out  1 A                      1.8 A             10 A
+ *   2 channel brdg  10 A                     14 A (peak)       15 A
+ *
+ * Note CURRENTMAXMAX is the per-channel MAXIMUM (4 A), not the continuous rating (3.5 A).
+ * A channel configured at 4000 mA sits at its peak capability, not at a level it can hold. */
 #define PEAKCURRENTMAX 3500	 // max allowed peak current in mA (peak-and-hold)
 #define CURRENTMAXMAX 4000	 // max allowed current through a channel
 
