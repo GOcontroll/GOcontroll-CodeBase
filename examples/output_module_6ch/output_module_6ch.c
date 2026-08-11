@@ -36,6 +36,16 @@
  *           Connect the load between the output pin and GND.
  *           Do not exceed the per-channel current rating of the module.
  *
+ *         See also:
+ *           `output_module_6ch_s1/` — the same module driven from a Moduline S1
+ *           (STM32H5 / FreeRTOS). It uses the identical CodeBase call sequence, but adds
+ *           what an S1 needs and Linux does not: the settle delays around detection and
+ *           configuration, return-value checking on every configure call, and the
+ *           diagnosis flow for a module that communicates perfectly while every output
+ *           stays dead. Read `output_module_6ch_s1.md` before debugging a dead output on
+ *           either platform — the traps it documents (frequency/function encoding, the
+ *           peak_current union, configuring more than once) are not Linux- or S1-specific.
+ *
  *         Build:
  *           make output_module_6ch
  **************************************************************************************/
@@ -112,9 +122,20 @@ int main(void)
 	 * GO_module_output_6ch_configure_channel() parameters:
 	 *   channel      — OUTPUTCHANNEL1 … OUTPUTCHANNEL6
 	 *   func         — OUTPUTFUNC_6CH_*
-	 *   currentMax   — continuous current limit, 0–4000 mA
-	 *   peak_current — peak duty cycle for peak-and-hold (0 = unused)
+	 *   currentMax   — continuous current limit, 0–4000 mA (CURRENTMAXMAX)
+	 *   peak_current — peak duty cycle for peak-and-hold (0 = unused), 0–3500
 	 *   peak_time    — peak phase duration for peak-and-hold (0 = unused)
+	 *
+	 * Pass 0/0 for peak_current and peak_time unless the function really is
+	 * OUTPUTFUNC_6CH_PEAKANDHOLD: they are stored in channelParameter1/2, which are
+	 * UNIONS that mean fastLoopGain / fastLoopBasicDuty for every other function.
+	 *
+	 * CHECK THE RETURN VALUE (ignored here only to keep the example short — see the S1
+	 * example for the pattern). These helpers validate their arguments FIRST and return
+	 * -EINVAL *without writing configuration[]*, so one out-of-range parameter leaves that
+	 * channel with function nibble 0 — a floating output — while configuration() afterwards
+	 * ships the half-built configuration and returns 0. The usual trigger is
+	 * currentMax > 4000.
 	 *
 	 * Available 6-channel functions (use OUTPUTFUNC_6CH_* macros):
 	 *   HALFBRIDGE     — half-bridge (H-bridge leg), duty-cycle controlled
@@ -141,16 +162,34 @@ int main(void)
 		                                       0);
 	}
 
-	/* Set the PWM frequency for the CH5/CH6 channel pair to 1 kHz.
+	/* Set the PWM frequency for the CH5/CH6 channel pair.
 	 * Channels are grouped in pairs: CH1&2 = OUTPUTFREQCHANNEL1AND2, etc.
-	 * Available 6-channel frequencies: 100 Hz, 200 Hz, 500 Hz, 1 kHz,
-	 *                                  2 kHz, 5 kHz, 10 kHz */
+	 *
+	 * WARNING — the OUTPUTFREQ_6CH_* macro NAMES do not match the SPI specification and
+	 * must not be read as documentation. The macros number 100 Hz = 1 … 10 kHz = 7, while
+	 * the spec defines 1 = 200 Hz, 2 = 500 Hz, 3 = 1 kHz, 4 = 2 kHz, 5 = 5 kHz,
+	 * 6 = 10 kHz — there is no 100 Hz, and OUTPUTFREQ_6CH_10KHZ (7) is outside the valid
+	 * range. So every name is one step below the frequency it actually programs, and a
+	 * value the module firmware does not recognise can leave a duty-controlled channel
+	 * silent WITHOUT setting any error bit.
+	 *
+	 * Nibble 4 is used here because it is the value the working Simulink-generated Linux
+	 * application programs for every channel of every 6-channel output module. Per the
+	 * spec that is 2 kHz, not the 1 kHz its macro name suggests.
+	 * See examples/output_module_6ch_s1/output_module_6ch_s1.md (trap 1) and AGENTS.md. */
 	GO_module_output_configure_frequency(&outputModule,
 	                                     OUTPUTFREQCHANNEL5AND6,
-	                                     OUTPUTFREQ_6CH_1KHZ);
+	                                     OUTPUTFREQ_6CH_1KHZ);   /* nibble 4 */
 
 	/* Send the full configuration to the module over SPI.
-	 * Must be called once after all channels are configured. */
+	 * Must be called EXACTLY once, after all channels are configured — not in a retry
+	 * loop and not again at runtime. Repeated reconfiguration breaks the module's SPI
+	 * synchronisation (observed: errorCode 0x30000000 with temperature/supply frozen).
+	 *
+	 * The return value is NOT proof of delivery: this path is transmit-only — no response,
+	 * no checksum check — so 0 means only that the transfer ran. The first real evidence
+	 * is the feedback below: a module answering with valid frames while dutyCycle[] stays
+	 * 0 for a commanded channel never received or applied its configuration. */
 	GO_module_output_configuration(&outputModule);
 
 	info("Module configured — starting output sequence\n\n");
