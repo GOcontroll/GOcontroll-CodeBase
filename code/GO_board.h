@@ -194,11 +194,37 @@ int GO_board_status_leds_led_control(uint8_t led, _ledColor color, uint8_t value
  ****************************************************************************************/
 
 /**************************************************************************************
-** \brief     Get the accelerometer sensor temperature (LSM6DS3).
-**            Returns the last value read by AccProcess(), updated at 10 Hz.
+** \brief     Get the controller temperature.
+**            STM32H5: the board temperature, measured by the on-board IMU — the last
+**                     value read by AccProcess(), updated at 10 Hz. Requires the
+**                     ControllerInfo task (GO_board_controller_info_task_start).
+**                     The IMU sits on the PCB, so this is the reading to use for how
+**                     warm the controller actually is; the die sensor below runs
+**                     above it. Returns 0 when WHO_AM_I did not identify the IMU —
+**                     the temperature scale is part-specific (16 LSB/°C on an
+**                     LSM6DS3, 256 LSB/°C on an LSM6DSL/DSO), so an unrecognised
+**                     part yields no reading instead of a wrong one. AccInit() logs
+**                     the detected identity over RTT.
+**            Linux:   the CPU thermal zone, identical to
+**                     GO_board_controller_info_get_cpu_temperature().
 ** \return    Temperature in degrees Celsius, or 0 if not yet available.
 ***************************************************************************************/
 float GO_board_controller_info_get_temperature(void);
+
+/**************************************************************************************
+** \brief     Get the CPU/MCU die temperature.
+**            STM32H5: the internal temperature sensor of the STM32H573, converted with
+**                     the factory calibration (TS_CAL1/TS_CAL2) against a measured
+**                     VrefInt. Sampled by the ADC thread, so
+**                     GO_board_controller_power_start_adc_thread() must be running —
+**                     the same precondition as the supply voltages, since both share
+**                     the single ADC handle. Reads the junction temperature, which
+**                     sits above ambient by the MCU's own dissipation; it is a
+**                     thermal-headroom signal, not an air-temperature sensor.
+**            Linux:   the CPU thermal zone (thermal_zone0). No thread needed.
+** \return    Temperature in degrees Celsius, or 0 if not yet available.
+***************************************************************************************/
+float GO_board_controller_info_get_cpu_temperature(void);
 
 /**************************************************************************************
 ** \brief     Read hardware version from the controller and populate hardwareConfig.

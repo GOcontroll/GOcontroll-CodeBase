@@ -55,10 +55,23 @@ examples/    Self-contained main()s, one per topic (Linux only at present)
    gives a wrong but plausible reading.
    See `code/modules/GO_module_input.h:64-74`.
 
-6. **The ADC thread must be started before reading supply voltages.** Call
-   `GO_board_controller_power_start_adc_thread(sample_time_ms)` first; otherwise
-   `GO_board_controller_power_voltage()` returns 0 mV.
+6. **The ADC thread must be started before reading supply voltages or the CPU
+   temperature.** Call `GO_board_controller_power_start_adc_thread(sample_time_ms)`
+   first; otherwise `GO_board_controller_power_voltage()` returns 0 mV and
+   `GO_board_controller_info_get_cpu_temperature()` returns 0 °C. Both are served
+   from the same cache because the S1 has a single ADC handle (`hadc1`) that is
+   reconfigured per channel — the thread is its only owner. Never convert an ADC
+   channel from another task or the model step: that reconfigures `hadc1`
+   underneath an in-flight conversion.
    See `code/GO_board.h:150`.
+
+   Note that the S1 has **two** temperatures and they are not interchangeable:
+   `GO_board_controller_info_get_cpu_temperature()` is the STM32H573 die (needs the
+   ADC thread; runs above ambient by the MCU's own dissipation), while
+   `GO_board_controller_info_get_temperature()` is the **board** temperature from the
+   on-board IMU (needs the ControllerInfo task, rule 7). For "how warm is the
+   controller" use the board temperature; the die sensor is a thermal-headroom
+   signal. On Linux both return the CPU thermal zone.
 
 7. **`GO_board_controller_info_task_start()` must run before the scheduler starts.**
    It creates the 10 Hz IMU task. On Linux this means before the application
@@ -220,7 +233,20 @@ The source-of-truth lives in:
 
 - **"Contested slot at runtime"** → `set_module_slot` was called before
   `GO_communication_modules_initialize`. See rule 2.
-- **All voltages read 0 mV** → ADC thread not started. See rule 6.
+- **All voltages read 0 mV, or the CPU temperature reads 0 °C** → ADC thread not
+  started. See rule 6.
+- **CPU temperature reads plausible but wrong** (tens of degrees off, tracks nothing)
+  → the temperature sensor was sampled with a short acquisition window. It needs
+  `ADC_SAMPLETIME_640CYCLES_5` at the S1's 62.5 MHz ADC clock; anything shorter
+  under-samples the high-impedance internal channel and still returns a believable
+  number. See `readCpuTemperature()` in `code/GO_board.c`.
+- **Board temperature (S1) sits near 25 °C and barely moves** → the IMU temperature
+  was converted at 256 LSB/°C while the fitted part is an LSM6DS3 (WHO_AM_I `0x69`),
+  which is 16 LSB/°C. A 16× scale error keeps every reading in a believable range —
+  a 60 °C board reports ~27 °C. `AccInit()` resolves the scale from WHO_AM_I and logs
+  it over RTT (`[IMU] WHO_AM_I 0x.., temperature .. LSB/degC`); check that line before
+  trusting the value. Only `0x69`, `0x6A` and `0x6C` are known — an unrecognised part
+  yields 0 °C rather than a guess.
 - **First read returns zeros** → `*_configure_channel` ran after `*_configuration()`.
   See rule 4.
 - **Output module suddenly disables all outputs** → application loop period

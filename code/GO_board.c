@@ -83,6 +83,11 @@ static uint32_t s_channels[2] = {ADC_CHANNEL_9, ADC_CHANNEL_5};
 
 static _controllerSupply s_controllerSupply;
 
+/* Last valid die temperature (degrees Celsius) sampled by the ADC thread. The
+ * separate valid-flag distinguishes "not sampled yet" from a genuine 0 °C. */
+static float   s_cpuTemperature;
+static uint8_t s_cpuTemperatureValid;
+
 static struct {
 	uint8_t  thread_run;
 	uint32_t sample_time;
@@ -90,17 +95,30 @@ static struct {
 
 static osThreadId_t s_adcThreadId;
 
-static int readAdc(uint8_t index, uint16_t* value) {
+/**************************************************************************************
+** \brief     Single-conversion read of one ADC1 channel, unscaled.
+**            hadc1 carries one channel at a time and is reconfigured per read, so
+**            every caller must run from the ADC thread — a second context
+**            reconfiguring the same handle would race with an ongoing conversion.
+** \param     channel       ADC_CHANNEL_* to convert (external pin or internal channel).
+** \param     samplingTime  ADC_SAMPLETIME_* acquisition window for this channel.
+** \param     raw           Pointer to variable to store the raw 12-bit result.
+** \return    0 on success, -1 on conversion timeout.
+***************************************************************************************/
+static int readAdcRaw(uint32_t channel, uint32_t samplingTime, uint16_t* raw) {
 	ADC_ChannelConfTypeDef ADCChannelConfiguration = {0};
 
 	HAL_ADC_Stop(&hadc1);
-	ADCChannelConfiguration.Channel     = s_channels[index];
+	ADCChannelConfiguration.Channel     = channel;
 	ADCChannelConfiguration.Rank        = ADC_REGULAR_RANK_1;
-	ADCChannelConfiguration.SamplingTime = ADC_SAMPLETIME_47CYCLES_5;
+	ADCChannelConfiguration.SamplingTime = samplingTime;
 	ADCChannelConfiguration.SingleDiff  = ADC_SINGLE_ENDED;
 	ADCChannelConfiguration.OffsetNumber = ADC_OFFSET_NONE;
 	ADCChannelConfiguration.Offset       = 0u;
 
+	/* For the internal channels (temperature sensor, VrefInt) this call also
+	 * switches on the internal measurement path and waits out the sensor
+	 * stabilization delay, so no extra handling is needed here. */
 	HAL_ADC_ConfigChannel(&hadc1, &ADCChannelConfiguration);
 	HAL_ADC_Start(&hadc1);
 
@@ -108,8 +126,68 @@ static int readAdc(uint8_t index, uint16_t* value) {
 		return -1;
 	}
 
-	*value = (uint16_t)(HAL_ADC_GetValue(&hadc1) * 8.7);
+	*raw = (uint16_t)HAL_ADC_GetValue(&hadc1);
 	return 0;
+}
+
+static int readAdc(uint8_t index, uint16_t* value) {
+	uint16_t raw = 0;
+
+	if (readAdcRaw(s_channels[index], ADC_SAMPLETIME_47CYCLES_5, &raw) != 0) {
+		return -1;
+	}
+
+	*value = (uint16_t)(raw * 8.7);
+	return 0;
+}
+
+/**************************************************************************************
+** \brief     Sample the internal temperature sensor and cache the result.
+**            Converted with the factory calibration values (TS_CAL1 at 30 °C,
+**            TS_CAL2 at 130 °C, both taken at Vref+ = 3.3 V). VrefInt is measured in
+**            the same pass so the reading stays correct when the analog supply
+**            drifts away from 3.3 V.
+**
+**            Sampling time: the temperature sensor needs a long acquisition window
+**            (datasheet ts_temp, ~9 µs). The ADC runs at HCLK/4 = 62.5 MHz, so only
+**            ADC_SAMPLETIME_640CYCLES_5 (~10.2 µs) is wide enough; a shorter window
+**            yields a wrong but entirely plausible temperature.
+**
+**            The arithmetic mirrors __LL_ADC_CALC_TEMPERATURE() but runs in float:
+**            that macro truncates to whole degrees, which is coarse for a value
+**            meant to be trended or broadcast.
+** \return    none.
+***************************************************************************************/
+static void readCpuTemperature(void) {
+	uint16_t rawTemp = 0, rawVref = 0;
+	int32_t  calSpan;
+	float    vrefVoltage, scaled;
+
+	if (readAdcRaw(ADC_CHANNEL_VREFINT, ADC_SAMPLETIME_640CYCLES_5, &rawVref) != 0) {
+		return;
+	}
+	if (readAdcRaw(ADC_CHANNEL_TEMPSENSOR, ADC_SAMPLETIME_640CYCLES_5, &rawTemp) != 0) {
+		return;
+	}
+	if (rawVref == 0u) {
+		return;
+	}
+
+	/* A blank or erased calibration area would divide by zero and produce a wild
+	 * value — keep the last valid reading instead. */
+	calSpan = (int32_t)(*TEMPSENSOR_CAL2_ADDR) - (int32_t)(*TEMPSENSOR_CAL1_ADDR);
+	if (calSpan == 0) {
+		return;
+	}
+
+	vrefVoltage = ((float)(*VREFINT_CAL_ADDR) * (float)VREFINT_CAL_VREF) / (float)rawVref;
+	scaled      = ((float)rawTemp * vrefVoltage) / (float)TEMPSENSOR_CAL_VREFANALOG;
+
+	s_cpuTemperature = (((scaled - (float)(*TEMPSENSOR_CAL1_ADDR))
+	                     * (float)(TEMPSENSOR_CAL2_TEMP - TEMPSENSOR_CAL1_TEMP))
+	                    / (float)calSpan)
+	                   + (float)TEMPSENSOR_CAL1_TEMP;
+	s_cpuTemperatureValid = 1u;
 }
 
 static void adcThreadFunc(void* arg) {
@@ -120,9 +198,26 @@ static void adcThreadFunc(void* arg) {
 		tick += s_adcThreadArgs.sample_time;
 		readAdc(1, &s_controllerSupply.batteryVoltage);
 		readAdc(0, &s_controllerSupply.k15aVoltage);
+		readCpuTemperature();
 		osDelayUntil(tick);
 	}
 	osThreadExit();
+}
+
+/**************************************************************************************
+** \brief     Get the MCU die temperature (STM32H5 internal temperature sensor).
+**            Returns the last value sampled by the ADC thread, which must be running
+**            (see GO_board_controller_power_start_adc_thread) — this is the same
+**            precondition as the supply voltages, because both share hadc1.
+**            Declared with the other ControllerInfo getters in GO_board.h; it lives
+**            here because the ADC thread owns the sampling.
+** \return    Temperature in degrees Celsius, or 0 if not yet available.
+***************************************************************************************/
+float GO_board_controller_info_get_cpu_temperature(void) {
+	if (!s_cpuTemperatureValid) {
+		return 0.0f;
+	}
+	return s_cpuTemperature;
 }
 
 
@@ -245,8 +340,23 @@ extern _hardwareConfig hardwareConfig;
 
 #define ACCELERO_ADDR (0xD6u)
 
+/* WHO_AM_I (0x0F) identities of the IMUs that fit this footprint. They share the
+ * register map used here — OUT_TEMP at 0x20/0x21, two's complement, 25 °C zero
+ * point — but NOT the temperature scale, which differs by a factor of 16. That
+ * makes the identity a precondition for the board temperature rather than a
+ * sanity check: at the wrong scale a 60 °C board still reports a perfectly
+ * believable 27 °C. */
+#define IMU_WHO_AM_I_LSM6DS3 (0x69u) /* LSM6DS3, LSM6DS33   —  16 LSB/°C */
+#define IMU_WHO_AM_I_LSM6DSL (0x6Au) /* LSM6DSL, LSM6DS3TR-C — 256 LSB/°C */
+#define IMU_WHO_AM_I_LSM6DSO (0x6Cu) /* LSM6DSO, LSM6DSOX    — 256 LSB/°C */
+
 static GOcontrollControllerInfo_t s_info_data;
 static osMutexId_t                s_info_data_lock = 0;
+
+/* Temperature sensitivity of the fitted IMU in LSB/°C, resolved from WHO_AM_I by
+ * AccInit(). Zero means the part was not identified; the board temperature is
+ * then left at 0 instead of being published at a guessed scale. */
+static float s_imuTempSensitivity = 0.0f;
 
 /* Exposed to GO_controller_info.c via extern */
 uint32_t go_board_model_stack_hwm = 0;
@@ -263,8 +373,32 @@ static TaskStatus_t               s_task_status[CONTROLLER_INFO_MAX_TASKS];
 static void AccInit(void) {
 	uint8_t data;
 
-	/* WHO_AM_I (0x0F) — expected value 0x69 for LSM6DS3 */
-	HAL_I2C_Mem_Read(&hi2c2, ACCELERO_ADDR, 0x0Fu, 1u, &data, 1u, 1000u);
+	/* WHO_AM_I (0x0F) — selects the temperature scale, so the answer has to be
+	 * acted on and not just fetched. */
+	if (HAL_I2C_Mem_Read(&hi2c2, ACCELERO_ADDR, 0x0Fu, 1u, &data, 1u, 1000u) != HAL_OK) {
+		data = 0u;
+	}
+
+	switch (data) {
+	case IMU_WHO_AM_I_LSM6DS3:
+		s_imuTempSensitivity = 16.0f;
+		break;
+	case IMU_WHO_AM_I_LSM6DSL:
+	case IMU_WHO_AM_I_LSM6DSO:
+		s_imuTempSensitivity = 256.0f;
+		break;
+	default:
+		s_imuTempSensitivity = 0.0f;
+		break;
+	}
+
+	if (s_imuTempSensitivity > 0.0f) {
+		SEGGER_RTT_printf(0, "[IMU]   WHO_AM_I 0x%02X, temperature %u LSB/degC\n",
+						  data, (unsigned)s_imuTempSensitivity);
+	} else {
+		SEGGER_RTT_printf(0, "[IMU]   WHO_AM_I 0x%02X not recognised - "
+							 "no board temperature\n", data);
+	}
 
 	/* INT1_CTRL (0x0D): INT1 on gyro data-ready */
 	data = 0x02u;
@@ -286,12 +420,19 @@ static void AccInit(void) {
 static void AccProcess(void) {
 	static uint8_t data[6];
 	int16_t        result;
-	float          acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z, temp;
+	float          acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z, temp = 0.0f;
 
-	/* Temperature: OUT_TEMP_L / OUT_TEMP_H (0x20-0x21) */
-	HAL_I2C_Mem_Read(&hi2c2, ACCELERO_ADDR, 0x20u, 1u, data, 2u, 500u);
-	result = (int16_t)((uint16_t)data[0] | ((uint16_t)data[1] << 8u));
-	temp = (float)result / 256.0f + 25.0f;
+	/* Board temperature: OUT_TEMP_L / OUT_TEMP_H (0x20-0x21), two's complement
+	 * with 25 °C as the zero point. The IMU sits on the controller PCB, so this
+	 * tracks the board — unlike the STM32 die sensor
+	 * (GO_board_controller_info_get_cpu_temperature), which reads above it by the
+	 * MCU's own dissipation. Skipped entirely when WHO_AM_I did not identify the
+	 * part, because the scale below would then be a guess. */
+	if (s_imuTempSensitivity > 0.0f) {
+		HAL_I2C_Mem_Read(&hi2c2, ACCELERO_ADDR, 0x20u, 1u, data, 2u, 500u);
+		result = (int16_t)((uint16_t)data[0] | ((uint16_t)data[1] << 8u));
+		temp = (float)result / s_imuTempSensitivity + 25.0f;
+	}
 
 	/* Gyroscope: OUTX_L_G ... OUTZ_H_G (0x22-0x27), 8.75 mdps/LSB */
 	HAL_I2C_Mem_Read(&hi2c2, ACCELERO_ADDR, 0x22u, 1u, data, 6u, 500u);
@@ -318,7 +459,9 @@ static void AccProcess(void) {
 		s_info_data.gyro_x = gyro_x;
 		s_info_data.gyro_y = gyro_y;
 		s_info_data.gyro_z = gyro_z;
-		s_info_data.temp   = temp;
+		if (s_imuTempSensitivity > 0.0f) {
+			s_info_data.temp = temp;
+		}
 		osMutexRelease(s_info_data_lock);
 	}
 }
@@ -402,10 +545,16 @@ static const osThreadAttr_t  s_info_task_attrs = {
 
 
 /**************************************************************************************
-** \brief     Get the accelerometer sensor temperature.
-**            Returns the last temperature reading from the LSM6DS3 sensor,
-**            updated by AccProcess() at 10 Hz.
-** \return    Temperature in degrees Celsius, or 0 if not yet available.
+** \brief     Get the board temperature.
+**            Returns the last temperature reading from the on-board IMU, updated by
+**            AccProcess() at 10 Hz. The sensor sits on the controller PCB, so this is
+**            a board temperature — use it, not
+**            GO_board_controller_info_get_cpu_temperature(), when the question is how
+**            warm the controller is rather than how much thermal headroom the MCU has.
+**            Stays 0 when WHO_AM_I did not identify the IMU: the temperature scale is
+**            part-specific, so an unrecognised part yields no reading rather than one
+**            at a guessed scale. AccInit() logs the detected identity over RTT.
+** \return    Temperature in degrees Celsius, or 0 if not available.
 ***************************************************************************************/
 float GO_board_controller_info_get_temperature(void) {
 	float t = 0.0f;
@@ -1015,11 +1164,12 @@ static uint8_t                    s_info_task_run = 0;
 
 
 /**************************************************************************************
-** \brief     Get the CPU/controller temperature.
+** \brief     Get the CPU die temperature.
 **            Reads from the thermal_zone0 sysfs node and converts millidegrees to Celsius.
+**            No background thread needed on Linux — the kernel keeps the node current.
 ** \return    Temperature in degrees Celsius, or 0 on failure.
 ***************************************************************************************/
-float GO_board_controller_info_get_temperature(void) {
+float GO_board_controller_info_get_cpu_temperature(void) {
 	int fileId = open("/sys/devices/virtual/thermal/thermal_zone0/temp",
 					  O_RDONLY | O_NONBLOCK);
 	if (fileId <= 0) {
@@ -1030,6 +1180,18 @@ float GO_board_controller_info_get_temperature(void) {
 	read(fileId, &tempValue[0], 15);
 	close(fileId);
 	return strtof(tempValue, NULL) / 1000;
+}
+
+
+/**************************************************************************************
+** \brief     Get the controller temperature.
+**            On Linux the CPU thermal zone is the controller temperature, so this is
+**            the same reading as GO_board_controller_info_get_cpu_temperature().
+**            (On S1 the two differ: there this function returns the IMU sensor.)
+** \return    Temperature in degrees Celsius, or 0 on failure.
+***************************************************************************************/
+float GO_board_controller_info_get_temperature(void) {
+	return GO_board_controller_info_get_cpu_temperature();
 }
 
 
