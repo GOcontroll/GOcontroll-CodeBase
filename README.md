@@ -49,7 +49,7 @@ Supported module types:
 
 - **Input modules** — 6-channel, 10-channel, and 4–20 mA variants.
 - **Output modules** — 6-channel and 10-channel high-side drivers.
-- **Bridge modules** — 2-channel H-bridge / half-bridge drivers.
+- **Bridge modules** — 2-channel half-bridge drivers. The two channels can be wired together as an H-bridge; that is a wiring arrangement, not a selectable mode.
 - **Load cell modules** — 4-channel strain gauge interface with configurable ADC gain, data rate, and mV/V sensitivity scaling.
 
 Module communication runs at **10 ms cycle minimum**; output modules trip a

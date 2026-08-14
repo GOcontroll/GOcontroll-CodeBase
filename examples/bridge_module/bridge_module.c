@@ -5,11 +5,19 @@
  *
  *         The bridge module has 2 channels, each independently configurable.
  *         Common use cases:
- *           BRIDGEFUNC_HALFBRIDGE     — H-bridge / half-bridge, duty cycle 0-1000
+ *           BRIDGEFUNC_HALFBRIDGE     — half-bridge, duty cycle 0-1000
  *                                       (0 = 0 %, 1000 = 100 %)
  *           BRIDGEFUNC_HIGHSIDEDUTY   — high-side PWM, duty cycle 0-1000
  *           BRIDGEFUNC_HIGHSIDEBOOL   — high-side on/off (value 0 or 1)
  *           BRIDGEFUNC_LOWSIDEBOOL    — low-side on/off (value 0 or 1)
+ *
+ *         There is NO full-bridge function. BRIDGEFUNC_* runs from 1 to 6 and
+ *         GO_module_bridge_configure_channel() rejects anything above 6 with
+ *         -EINVAL. An H-bridge is a WIRING arrangement, not a setting: put BOTH
+ *         channels on BRIDGEFUNC_HALFBRIDGE and connect the load BETWEEN the two
+ *         channel outputs instead of between one output and ground. Direction
+ *         follows from which channel carries the duty cycle while the other stays
+ *         at 0. NEVER drive both at once — that shorts the load across the supply.
  *
  *         This example configures:
  *           Channel 1 — BRIDGEFUNC_HALFBRIDGE at 200 Hz
