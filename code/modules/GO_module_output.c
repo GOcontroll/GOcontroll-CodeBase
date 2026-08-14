@@ -314,7 +314,7 @@ int GO_module_output_6ch_configure_channel(_outputModule* outputModule,
 	if (outputModule->moduleType != OUTPUTMODULE6CHANNEL) {
 		err("Incorrect module type selected for channel %d, output module in "
 			"slot %d, this function is only meant for 6 channel modules\n",
-			outputModule->moduleSlot + 1, channel + 1);
+			channel + 1, outputModule->moduleSlot + 1);
 		return -EINVAL;
 	}
 	if ((func > 8) || (func == 0)) {
