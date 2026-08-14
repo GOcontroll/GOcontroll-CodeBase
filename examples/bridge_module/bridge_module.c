@@ -17,7 +17,7 @@
  *         channels on BRIDGEFUNC_HALFBRIDGE and connect the load BETWEEN the two
  *         channel outputs instead of between one output and ground. Direction
  *         follows from which channel carries the duty cycle while the other stays
- *         at 0. NEVER drive both at once — that shorts the load across the supply.
+ *         at 0.
  *
  *         This example configures:
  *           Channel 1 — BRIDGEFUNC_HALFBRIDGE at 200 Hz
