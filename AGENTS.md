@@ -83,10 +83,15 @@ examples/    Self-contained main()s, one per topic (Linux only at present)
      `*_send_values()` calls per module. Anything faster overdrives the
      module SPI bus and produces dropped/garbled frames.
    - **Maximum 400 ms** for *output modules* (output 6ch, output 10ch,
-     bridge). The module runs its own communication-loss watchdog: if no
-     valid frame arrives within 400 ms it disables all outputs as a fail-safe.
-     This means a stalled or paused application loop will silently drop
-     loads from the system.
+     bridge). The module runs its own communication-loss watchdog: it
+     disables all outputs as a fail-safe once **600 ms** pass without a
+     valid frame. 400 ms is the recommended ceiling, not the threshold —
+     it leaves margin for jitter. This means a stalled or paused
+     application loop will silently drop loads from the system.
+     The threshold lives in the shared module firmware layer
+     (`SharedModules/Src/ModuleCommunication.c`, `failureCounter > 600`,
+     incremented once per 1 ms task tick) and is identical in every module
+     firmware, not only in the output modules.
    - Canonical period is **10 ms** (`usleep(10000)` on Linux,
      `osDelay(10)` on S1). Use 1 ms only for low-latency CAN RX polling
      in dedicated tasks — never as the module loop.
@@ -250,7 +255,7 @@ The source-of-truth lives in:
 - **First read returns zeros** → `*_configure_channel` ran after `*_configuration()`.
   See rule 4.
 - **Output module suddenly disables all outputs** → application loop period
-  exceeded 400 ms; the module's own watchdog dropped to fail-safe. See rule 8.
+  exceeded 600 ms; the module's own watchdog dropped to fail-safe. See rule 8.
 - **CAN bus stops after one bus-off** → recovery only happens when
   `GO_communication_can_bus_off_recovery` is wired into the
   `HAL_FDCAN_ErrorStatusCallback` (S1). See rule 10.
