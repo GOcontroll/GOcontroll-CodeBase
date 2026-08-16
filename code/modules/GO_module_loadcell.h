@@ -113,7 +113,7 @@ int GO_module_loadcell_receive_values(_loadcellModule* loadcellModule);
 /**************************************************************************************
 ** \brief     Sets the module slot for a loadcell module and validates the slot
 **            assignment. Verifies that the module physically present in the given
-**            slot matches the loadcell module ID {20, 10, 4}.
+**            slot matches the loadcell module ID {20, 10, 5}.
 **            GO_communication_modules_initialize() must be called for this slot
 **            before this function, otherwise the occupancy table is empty and
 **            validation will fail.

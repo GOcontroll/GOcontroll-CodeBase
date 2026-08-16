@@ -51,7 +51,7 @@
  ****************************************************************************************/
 static uint8_t loadcellDataTx[LOADCELLMODULEMESSAGELENGTH + MESSAGEOVERLENGTH];
 static uint8_t loadcellDataRx[LOADCELLMODULEMESSAGELENGTH + MESSAGEOVERLENGTH];
-const uint8_t LOADCELLMODULECHANNELID[] = {20, 10, 4};
+const uint8_t LOADCELLMODULECHANNELID[] = {20, 10, 5};
 const uint32_t VERSIONSPIPROTOCOLV2_LOADCELL = 2 << 16;
 
 extern _hardwareConfig hardwareConfig;
@@ -140,7 +140,7 @@ int GO_module_loadcell_receive_values(_loadcellModule* loadcellModule) {
 
 /****************************************************************************************
 ** \brief  Validates the requested slot against hardwareConfig.moduleOccupancy using
-**         a 3-byte memcmp against LOADCELLMODULECHANNELID {20, 10, 4}. Stores the
+**         a 3-byte memcmp against LOADCELLMODULECHANNELID {20, 10, 5}. Stores the
 **         slot index on match; logs an error and returns -EINVAL on mismatch or
 **         out-of-range slot.
 ****************************************************************************************/
