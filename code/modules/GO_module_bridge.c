@@ -54,7 +54,7 @@ static uint8_t
 static uint8_t
 	bridgeModuleDataRx[BRIDGEMODULEMESSAGELENGTH + MESSAGEOVERLENGTH];
 
-const uint8_t BRIDGEMODULECHANNELID[] = {20, 10, 1};
+const uint8_t BRIDGEMODULECHANNELID[] = {20, 20, 1};
 
 const uint32_t VERSIONSPIPROTOCOLV2_BRIDGE = 2 << 16;
 
