@@ -12,9 +12,17 @@ HAL samen — geen cross-repo drift.
 |---|---|
 | `s1.mk` | Alle generieke build-regels (toolchain, flags, sources, link, flash/debug-targets). |
 | `stack_check.py` | Statische stack-analyse op basis van de `.su`-bestanden van de compiler (zie hieronder). |
-| `jlink/flash.jlink` | `make flash` — reset, halt, `loadfile deploy/firmware.hex`, reset+run. |
 | `jlink/erase.jlink` | `make erase` — mass-erase. |
 | `jlink/reset.jlink` | `make reset` — reset + run zonder flashen. |
+
+> `make flash` gebruikt géén statisch script: `s1.mk` genereert
+> `$(BUILD_DIR)/flash.jlink` met een **absoluut** pad naar `$(FIRMWARE)`.
+> J-Link Commander kent geen variabelen, dus een statisch script zou het
+> firmware-pad moeten hardcoderen — en dat pad hangt af van de map waarin `make`
+> draait, die per project-layout verschilt. Erger nog: bij een verkeerd pad meldt
+> JLink alleen `Failed to open file`, loopt door met reset+run en geeft
+> exit-code 0 — de upload lijkt dan te slagen terwijl de OUDE firmware
+> blijft draaien. Genereren maakt die klasse fout onmogelijk.
 
 ## Gebruik vanuit een applicatie-repo
 
@@ -37,6 +45,21 @@ include $(CODEBASE)/make/s1.mk
 
 De `application-builder` skill beheert alleen de twee marker-blokken
 (`PROJECT`, `UNIT_DIRS`); de rest is stabiel.
+
+Alle paden hierboven zijn relatief aan de map waarin `make` draait, niet aan
+`s1.mk`. Het voorbeeld toont de layout met de Makefile op de repo-root. In de
+**standalone project-layout** staat de Makefile in `application/` en zijn de
+waarden navenant anders:
+
+```makefile
+UNIT_DIRS  := modem can1        # zonder application/-prefix
+APP_DIR    := .
+BUILD_DIR  := ../build
+DEPLOY_DIR := ../deploy
+```
+
+Beide layouts worden ondersteund. Regels in deze build-laag mogen daarom nooit
+een pad hardcoderen, maar leiden het af van bovenstaande variabelen.
 
 ## Vereisten
 
