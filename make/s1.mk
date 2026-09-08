@@ -318,9 +318,24 @@ reset:
 	@echo "  RESET $(CHIP_JLINK)"
 	@$(JLINK) $(JLINK_BASE_OPTS) -CommanderScript $(CODEBASE)/make/jlink/reset.jlink
 
+# ----- gdbserver: draait standaard ZONDER de target te halten ----------------
+# JLinkGDBServer halt de core by default zodra hij verbindt, en wacht dan op een
+# GDB-client die `continue` geeft. Wie de server alleen start om RTT of
+# `make rtt_watch` te voeden, ziet zijn applicatie daardoor stilvallen op het
+# moment dat de server opkomt. Dat leest als een crash of een hang in de
+# firmware, terwijl de CPU simpelweg gehalt is en er niets mis is — een
+# faalmodus die kostbaar is omdat je hem in de firmware gaat zoeken.
+#
+# De twee gebruiken zijn niet in één default te verenigen, dus `-nohalt` aan:
+# dit target wordt vooral als RTT-doorgeefluik gebruikt (`rtt` en `rtt_watch`
+# hangen er allebei aan en willen per definitie een lopende target). Stap-voor-
+# stap debuggen doe je met `make debug`, dat zelf `monitor reset` + `load`
+# stuurt en dus niet op de connect-halt leunt.
+#
+# Oude gedrag terug: `make gdbserver HALT=1`.
 gdbserver:
-	@echo "  GDB-SERVER  $(CHIP_JLINK)  (port 2331, RTT on)"
-	@$(JLINK_GDB) -select USB -device $(CHIP_JLINK) -if $(JLINK_IF) -speed $(JLINK_SPEED) -port 2331 -rtos GDBServer/RTOSPlugin_FreeRTOS
+	@echo "  GDB-SERVER  $(CHIP_JLINK)  (port 2331, RTT on,$(if $(HALT), halt-on-connect, nohalt))"
+	@$(JLINK_GDB) -select USB -device $(CHIP_JLINK) -if $(JLINK_IF) -speed $(JLINK_SPEED) -port 2331 -rtos GDBServer/RTOSPlugin_FreeRTOS $(if $(HALT),,-nohalt)
 
 # Interactive GDB session. Run `make gdbserver` in a second terminal first.
 debug: $(ELF)
