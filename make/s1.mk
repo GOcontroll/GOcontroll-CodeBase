@@ -51,7 +51,14 @@ UNIT_DIRS  ?=
 # ----- Shell -------------------------------------------------------------
 # Windows: use Git Bash so mkdir -p / rm -rf work. Linux/macOS: system bash.
 ifeq ($(OS),Windows_NT)
-SHELL := C:/PROGRA~1/Git/usr/bin/bash.exe
+GIT_USR_BIN := C:/PROGRA~1/Git/usr/bin
+SHELL := $(GIT_USR_BIN)/bash.exe
+# SHELL alleen is niet genoeg: make op Windows omzeilt de shell voor recepten
+# zonder shell-metateken en start die regel direct met CreateProcess. `mkdir -p`,
+# `rm -rf` en `nproc` zijn dan onvindbaar zodra make niet vanuit Git Bash start
+# (PowerShell, cmd, de Configurator) -- Git's usr/bin staat immers alleen binnen
+# Git Bash in het PATH. Vooraan het PATH zetten dekt alle recepten in een keer.
+export PATH := $(GIT_USR_BIN);$(PATH)
 else
 SHELL := /bin/bash
 endif
