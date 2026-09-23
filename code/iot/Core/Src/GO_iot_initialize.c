@@ -44,6 +44,39 @@
 
 
 /****************************************************************************************
+** \brief  Mark the flash read-only/OTP/UID area (0x08FFF000-0x08FFFFFF) non-cacheable.
+**         On the STM32H5 a read from this area through the ICACHE raises a HardFault.
+**         It holds the factory calibration (VREFINT_CAL, TS_CAL1/2) and the UID, so
+**         any read of those — e.g. the CPU temperature sampled by the ADC thread —
+**         froze the controller. Must run before the ICACHE is enabled.
+**         MPU_PRIVILEGED_DEFAULT keeps the default memory map for everything else.
+****************************************************************************************/
+static void MPU_Config(void)
+{
+	MPU_Attributes_InitTypeDef attributes = {0};
+	MPU_Region_InitTypeDef     region     = {0};
+
+	HAL_MPU_Disable();
+
+	attributes.Number     = MPU_ATTRIBUTES_NUMBER0;
+	attributes.Attributes = INNER_OUTER(MPU_NOT_CACHEABLE);
+	HAL_MPU_ConfigMemoryAttributes(&attributes);
+
+	region.Enable           = MPU_REGION_ENABLE;
+	region.Number           = MPU_REGION_NUMBER0;
+	region.AttributesIndex  = MPU_ATTRIBUTES_NUMBER0;
+	region.BaseAddress      = 0x08FFF000UL;
+	region.LimitAddress     = 0x08FFFFFFUL;
+	region.AccessPermission = MPU_REGION_ALL_RO;
+	region.DisableExec      = MPU_INSTRUCTION_ACCESS_DISABLE;
+	region.IsShareable      = MPU_ACCESS_NOT_SHAREABLE;
+	HAL_MPU_ConfigRegion(&region);
+
+	HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
+}
+
+
+/****************************************************************************************
 ** \brief  Initialize the GOcontroll S1 controller platform.
 ****************************************************************************************/
 void GO_iot_initialize(void)
@@ -54,6 +87,7 @@ void GO_iot_initialize(void)
 	/* Set keep alive pin high as soon as possible */
 	HAL_GPIO_WritePin(KL15_CONTROLLER_UCO_GPIO_Port, KL15_CONTROLLER_UCO_Pin,
 					  GPIO_PIN_SET);
+	MPU_Config();
 	MX_ICACHE_Init();
 	MX_SPI1_Init();
 	MX_USART2_UART_Init();

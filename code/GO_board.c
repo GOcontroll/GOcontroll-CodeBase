@@ -252,7 +252,9 @@ int GO_board_controller_power_voltage(uint8_t supply, uint16_t* value) {
 void GO_board_controller_power_start_adc_thread(uint32_t sample_time_ms) {
 	static const osThreadAttr_t adc_thread_attributes = {
 		.name       = "adc_thread",
-		.stack_size = 128 * 4,
+		/* The temperature path uses the FPU, so every context switch also stacks
+		 * the FPU registers (~200 B frame); 512 B left too little headroom. */
+		.stack_size = 256 * 4,
 		.priority   = (osPriority_t) osPriorityNormal,
 	};
 	s_adcThreadArgs.sample_time = sample_time_ms;
