@@ -250,8 +250,13 @@ The source-of-truth lives in:
   which is 16 LSB/°C. A 16× scale error keeps every reading in a believable range —
   a 60 °C board reports ~27 °C. `AccInit()` resolves the scale from WHO_AM_I and logs
   it over RTT (`[IMU] WHO_AM_I 0x.., temperature .. LSB/degC`); check that line before
-  trusting the value. Only `0x69`, `0x6A` and `0x6C` are known — an unrecognised part
-  yields 0 °C rather than a guess.
+  trusting the value. Only `0x69`, `0x6A`, `0x6B` and `0x6C` are known — an unrecognised
+  part yields 0 °C rather than a guess.
+- **Board temperature (S1) stays at exactly 0 °C while accelerometer and gyro work** →
+  the fitted IMU has a WHO_AM_I that `AccInit()` does not know. Not every S1 carries an
+  LSM6DS3: boards fitted with an ASM330LHH (`0x6B`, 256 LSB/°C) read 0 °C until `0x6B`
+  was added. Find the part (BOM or RTT line) and add its WHO_AM_I with the temperature
+  sensitivity from its datasheet.
 - **First read returns zeros** → `*_configure_channel` ran after `*_configuration()`.
   See rule 4.
 - **Output module suddenly disables all outputs** → application loop period

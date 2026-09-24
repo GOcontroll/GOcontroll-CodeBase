@@ -350,6 +350,7 @@ extern _hardwareConfig hardwareConfig;
  * believable 27 °C. */
 #define IMU_WHO_AM_I_LSM6DS3 (0x69u) /* LSM6DS3, LSM6DS33   —  16 LSB/°C */
 #define IMU_WHO_AM_I_LSM6DSL (0x6Au) /* LSM6DSL, LSM6DS3TR-C — 256 LSB/°C */
+#define IMU_WHO_AM_I_ASM330  (0x6Bu) /* ASM330LHH, ISM330DHCX, LSM6DSR — 256 LSB/°C */
 #define IMU_WHO_AM_I_LSM6DSO (0x6Cu) /* LSM6DSO, LSM6DSOX    — 256 LSB/°C */
 
 static GOcontrollControllerInfo_t s_info_data;
@@ -386,6 +387,7 @@ static void AccInit(void) {
 		s_imuTempSensitivity = 16.0f;
 		break;
 	case IMU_WHO_AM_I_LSM6DSL:
+	case IMU_WHO_AM_I_ASM330:
 	case IMU_WHO_AM_I_LSM6DSO:
 		s_imuTempSensitivity = 256.0f;
 		break;

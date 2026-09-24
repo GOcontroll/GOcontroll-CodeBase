@@ -202,7 +202,7 @@ int GO_board_status_leds_led_control(uint8_t led, _ledColor color, uint8_t value
 **                     warm the controller actually is; the die sensor below runs
 **                     above it. Returns 0 when WHO_AM_I did not identify the IMU —
 **                     the temperature scale is part-specific (16 LSB/°C on an
-**                     LSM6DS3, 256 LSB/°C on an LSM6DSL/DSO), so an unrecognised
+**                     LSM6DS3, 256 LSB/°C on an LSM6DSL/DSO/ASM330LHH), so an unrecognised
 **                     part yields no reading instead of a wrong one. AccInit() logs
 **                     the detected identity over RTT.
 **            Linux:   the CPU thermal zone, identical to
