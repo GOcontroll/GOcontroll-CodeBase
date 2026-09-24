@@ -64,11 +64,14 @@ int GO_controller_info_get_model_version(_modelVersion *ver) {
 
 /****************************************************************************************/
 
+/* No App ID and no distribution URL unless the model sets them: the ESP no longer takes
+ * either from APP_CONFIG (S1-kennisbank uart-stm32.md §4.3), and a controller without an App ID
+ * is in factory mode. */
 static _appConfig app_config = {
-	.app_id           = "GOCOFREE",
+	.app_id           = "",
 	.signing_enabled  = 0u,
 	.public_key       = {0},
-	.distribution_url = "https://deploy.gocontroll.com",
+	.distribution_url = "",
 	.latest_only   = 0u,
 };
 

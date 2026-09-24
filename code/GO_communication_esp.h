@@ -277,7 +277,9 @@ void GO_communication_esp_on_time_sync(uint16_t year, uint8_t month, uint8_t day
 /**************************************************************************************
 ** \brief     Send modem APN and optional SIM PIN to the ESP.
 ** \param     apn      Null-terminated APN string.
-** \param     sim_pin  Null-terminated SIM PIN string, or NULL / "" when no PIN required.
+** \param     sim_pin  Null-terminated SIM PIN string, or NULL / "" to let the ESP use the PIN
+**                     set during commissioning (default 0000). The ESP enters it only when the
+**                     SIM asks for one (S1-kennisbank modem-lte-gps.md §2).
 ** \return    none
 ***************************************************************************************/
 void GO_communication_esp_set_modem_config(const char *apn, const char *sim_pin);
@@ -290,14 +292,18 @@ void GO_communication_esp_set_modem_config(const char *apn, const char *sim_pin)
 void GO_communication_esp_enable_lte(bool enable);
 
 /**************************************************************************************
-** \brief     Send MQTT broker credentials to the ESP. Changes take effect on the
-**            ESP after a reconnect.
-** \param     url         Null-terminated broker URL string.
-** \param     port        Broker port number.
-** \param     user        Null-terminated username string.
-** \param     pass        Null-terminated password string.
-** \param     client_id   Null-terminated client ID string.
-** \param     keep_alive  Keep-alive interval in seconds.
+** \brief     Send MQTT broker settings to the ESP; a running session restarts with them.
+**            Every part left empty is taken from the defaults set on the ESP during
+**            commissioning, so an application binary never has to carry credentials;
+**            a part supplied here takes precedence (S1-kennisbank mqtt.md §2.1). Not
+**            calling this at all is allowed: GO_communication_esp_enable_mqtt(true) then
+**            connects with the defaults.
+** \param     url         Null-terminated broker host or URL ("mqtt://", "mqtts://"); "" = default.
+** \param     port        Broker port number; 0 = default.
+** \param     user        Null-terminated username; "" = default username and password.
+** \param     pass        Null-terminated password, used together with user.
+** \param     client_id   Null-terminated client ID; "" = the controller serial number.
+** \param     keep_alive  Keep-alive interval in seconds; not used by the ESP.
 ** \return    none
 ***************************************************************************************/
 void GO_communication_esp_set_mqtt_config(const char *url, uint16_t port,
