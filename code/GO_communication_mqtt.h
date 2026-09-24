@@ -5,7 +5,7 @@
  *         Provides identical function calls on all supported platforms:
  *           GOCONTROLL_LINUX  — Moduline L4 / Moduline M1
  *                               Backend: libmosquitto (background thread)
- *           GOCONTROLL_IOT    — Moduline S1 (STM32H5)
+ *           GOCONTROLL_STM    — Moduline S1 (STM32H5)
  *                               Backend: GO_communication_esp (ESP32 co-processor)
  *
  *         Typical usage:
@@ -62,7 +62,7 @@ extern "C" {
 ** new_flag must be cleared by the application after reading.
 **
 ** \note  The struct layout is intentionally identical to EspInterface_MqttSubData_t so
-**        that on GOCONTROLL_IOT the pointer can be passed directly to the ESP driver
+**        that on GOCONTROLL_STM the pointer can be passed directly to the ESP driver
 **        with a simple cast — no copying required.
 ==============================================================================================*/
 typedef struct

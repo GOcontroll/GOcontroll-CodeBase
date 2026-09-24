@@ -2,7 +2,7 @@
  * \file   GO_gps.c
  * \brief  Platform-agnostic GPS implementation for GOcontroll targets.
  *         Compile with -DGOCONTROLL_LINUX for Linux targets or
- *         -DGOCONTROLL_IOT for STM32-based S1 targets.
+ *         -DGOCONTROLL_STM for STM32-based S1 targets.
  * \internal
  *----------------------------------------------------------------------------------------
  *                          C O P Y R I G H T
@@ -41,7 +41,7 @@
  * GO_gps_read() runs in task context and uses a brief interrupt disable to copy
  * the struct atomically — no RTOS mutex may be used in ISR context.
  ****************************************************************************************/
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 #include "GO_communication_esp.h"
 #include "SEGGER_RTT.h"

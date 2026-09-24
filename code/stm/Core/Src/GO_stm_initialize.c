@@ -1,5 +1,5 @@
 /**************************************************************************************
-** \file      GO_iot_initialize.c
+** \file      GO_stm_initialize.c
 ** \brief     GOcontroll S1 controller platform initialization.
 ** \internal
 ***************************************************************************************
@@ -29,7 +29,7 @@
 ** \endinternal
 ****************************************************************************************/
 
-#include "GO_iot_initialize.h"
+#include "GO_stm_initialize.h"
 #include "adc.h"
 #include "fdcan.h"
 #include "gpio.h"
@@ -79,7 +79,7 @@ static void MPU_Config(void)
 /****************************************************************************************
 ** \brief  Initialize the GOcontroll S1 controller platform.
 ****************************************************************************************/
-void GO_iot_initialize(void)
+void GO_stm_initialize(void)
 {
 	HAL_Init();
 	SystemClock_Config();

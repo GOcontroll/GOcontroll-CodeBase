@@ -7,7 +7,7 @@
  *         on-board accelerometer/gyroscope.
  *
  *         Platform selection via preprocessor define:
- *           GOCONTROLL_IOT   →  STM32H5 (Moduline S1)
+ *           GOCONTROLL_STM   →  STM32H5 (Moduline S1)
  *           GOCONTROLL_LINUX →  Linux/IMX8 (Moduline L4 / Moduline M1)
  * \internal
  *----------------------------------------------------------------------------------------
@@ -84,7 +84,7 @@ typedef struct {
 /****************************************************************************************
  * Function prototypes — GOcontrollBoard
  ****************************************************************************************/
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 /*
  * TODO: add STM32H5 board-level function declarations here.

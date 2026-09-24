@@ -4,7 +4,7 @@
  *
  *         Conditional compilation selects the correct backend:
  *           GOCONTROLL_LINUX  — libmosquitto, background network thread
- *           GOCONTROLL_IOT    — GO_communication_esp (ESP32 co-processor via UART)
+ *           GOCONTROLL_STM    — GO_communication_esp (ESP32 co-processor via UART)
  **************************************************************************************/
 
 #include "GO_communication_mqtt.h"
@@ -134,7 +134,7 @@ __attribute__((weak)) void GO_communication_mqtt_on_status(uint8_t status) { (vo
 /* ============================================================================
  * S1 — ESP32 co-processor via GO_communication_esp
  * ========================================================================= */
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 #include "GO_communication_esp.h"
 
@@ -182,4 +182,4 @@ void GO_communication_esp_on_mqtt_status(uint8_t status)
 
 __attribute__((weak)) void GO_communication_mqtt_on_status(uint8_t status) { (void)status; }
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_STM */

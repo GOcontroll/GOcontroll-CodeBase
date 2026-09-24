@@ -4,7 +4,7 @@
  *         Interfaces the XCP stack with the underlying transport (CAN, TCP, UDP).
  *
  *         Platform selection via preprocessor define:
- *           GOCONTROLL_IOT  →  STM32H5 (Moduline S1): FDCAN via HAL + FreeRTOS
+ *           GOCONTROLL_STM  →  STM32H5 (Moduline S1): FDCAN via HAL + FreeRTOS
  *           (default)       →  Linux/IMX8 (Moduline L4 / Moduline M1): sockets
  *
  * \internal
@@ -69,7 +69,7 @@
 
 #include "XcpStack.h"
 
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 #include "GO_communication_can.h"
 #include "cmsis_os2.h"
 #include "stm32h5xx_hal.h"
@@ -88,7 +88,7 @@ extern "C" {
 /** \brief Static XCP memory reservation (used when dynamic allocation is disabled) */
 #define XCPSTATICMEMORY (2048)
 
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 /** \brief STM32H5: use FreeRTOS pvPortMalloc/pvPortFree */
 #define DYNAMICMEMORYALLOCATION         (0)
 #define DYNAMICMEMORYALLOCATIONFREERTOS (0)
@@ -165,9 +165,9 @@ void GO_xcp_stop_connection(void);
 uint8_t GO_xcp_user_cmd(uint8_t *dataReceived);
 
 /****************************************************************************************
- * Function prototypes — STM32H5 (GOCONTROLL_IOT) specific
+ * Function prototypes — STM32H5 (GOCONTROLL_STM) specific
  ****************************************************************************************/
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 /**************************************************************************************
 ** \brief     Configure the FDCAN peripheral for XCP and set up the receive filter.
@@ -224,7 +224,7 @@ void *GO_xcp_initialize_udp(void *aArgument);
 ***************************************************************************************/
 void *GO_xcp_initialize_can(void *aArgument);
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_STM */
 
 #ifdef __cplusplus
 }

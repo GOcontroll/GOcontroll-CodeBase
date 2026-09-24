@@ -35,7 +35,7 @@
 extern "C" {
 #endif
 
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -43,7 +43,7 @@ extern "C" {
 void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName);
 void vApplicationMallocFailedHook(void);
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_STM */
 
 #ifdef __cplusplus
 }

@@ -7,7 +7,7 @@
  *         on-board accelerometer/gyroscope.
  *
  *         Platform selection via preprocessor define:
- *           GOCONTROLL_IOT   →  STM32H5 (Moduline S1)
+ *           GOCONTROLL_STM   →  STM32H5 (Moduline S1)
  *           GOCONTROLL_LINUX →  Linux/IMX8 (Moduline L4 / Moduline M1)
  * \internal
  *----------------------------------------------------------------------------------------
@@ -47,10 +47,10 @@
 
 /****************************************************************************************
  ****************************************************************************************
- * STM32H5 (GOCONTROLL_IOT) implementations
+ * STM32H5 (GOCONTROLL_STM) implementations
  ****************************************************************************************
  ****************************************************************************************/
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 /* ---- ControllerPower ---- */
 #include "adc.h"
@@ -1460,6 +1460,6 @@ void GO_board_controller_info_get_data(GOcontrollControllerInfo_t *out) {
 	pthread_mutex_unlock(&s_info_data_lock);
 }
 
-#endif /* GOCONTROLL_IOT / GOCONTROLL_LINUX */
+#endif /* GOCONTROLL_STM / GOCONTROLL_LINUX */
 
 /* end of GO_board.c */

@@ -4,7 +4,7 @@
  *         Handles SPI send/receive, chip selects, module reset and bootloader escape.
  *
  *         Platform selection via preprocessor define:
- *           GOCONTROLL_IOT  →  STM32H5 (Moduline S1)
+ *           GOCONTROLL_STM  →  STM32H5 (Moduline S1)
  *           (default)       →  Linux/IMX8 (Moduline L4 / Moduline M1)
  * \internal
  *----------------------------------------------------------------------------------------
@@ -138,7 +138,7 @@ int GO_communication_modules_initialize(uint8_t moduleslot);
 ** \brief     One-time SPI priming (throwaway transfer) so the first real module transfer
 **            is not the one that initializes the peripheral. Ports the Linux DummySpiSend();
 **            prevents the output module's slave from staying a byte out of phase. Call once
-**            before the first module transaction. (STM32/IOT only.)
+**            before the first module transaction. (STM32 only.)
 ***************************************************************************************/
 void GO_communication_modules_dummy_spi(uint8_t module);
 
@@ -173,7 +173,7 @@ int8_t GO_communication_modules_reset_state_module(uint8_t module, uint8_t state
 **            bootloader-detection path and any application-level recovery path cannot
 **            drift apart in pulse width or ordering.
 **
-**            On IOT the actual pad level is sampled while asserted and after release, so
+**            On STM the actual pad level is sampled while asserted and after release, so
 **            a reset line that never moves is reported instead of silently producing a
 **            module that stays in its application.
 **
@@ -232,9 +232,9 @@ int GO_communication_modules_send_receive_spi(uint8_t command, uint8_t dataLengt
 											uint8_t *dataRx);
 
 /****************************************************************************************
- * Function prototypes — STM32H5 (GOCONTROLL_IOT) specific
+ * Function prototypes — STM32H5 (GOCONTROLL_STM) specific
  ****************************************************************************************/
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 /**************************************************************************************
 ** \brief     Delay execution using the RTOS scheduler (non-blocking for other tasks).
@@ -243,7 +243,7 @@ int GO_communication_modules_send_receive_spi(uint8_t command, uint8_t dataLengt
 ***************************************************************************************/
 void GO_communication_modules_delay_1ms_os(uint32_t times);
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_STM */
 
 #ifdef __cplusplus
 }

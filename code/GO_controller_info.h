@@ -2,7 +2,7 @@
  * \file   GO_controller_info.h
  * \brief  Controller runtime information interface for GOcontroll targets.
  *         Covers model/XCP task stack high-water marks, free heap and CPU load.
- *         Compile with -DGOCONTROLL_IOT for STM32-based S1 targets.
+ *         Compile with -DGOCONTROLL_STM for STM32-based S1 targets.
  *         On Linux, all functions return 0.
  * \internal
  *----------------------------------------------------------------------------------------

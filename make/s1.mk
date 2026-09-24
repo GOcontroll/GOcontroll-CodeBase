@@ -91,8 +91,8 @@ JLINK_IF     ?= SWD
 JLINK_SPEED  ?= 4000
 
 # ----- Linker script & startup ----------------------------------------------
-LINKER_SCRIPT := $(CODEBASE)/code/iot/STM32H573RITX_FLASH.ld
-STARTUP_SRC   := $(CODEBASE)/code/iot/Core/Startup/startup_stm32h573ritx.s
+LINKER_SCRIPT := $(CODEBASE)/code/stm/STM32H573RITX_FLASH.ld
+STARTUP_SRC   := $(CODEBASE)/code/stm/Core/Startup/startup_stm32h573ritx.s
 
 # ----- CPU / FPU flags -------------------------------------------------------
 # STM32H573 = Cortex-M33 + single-precision FPU (fpv5-sp-d16).
@@ -100,11 +100,11 @@ STARTUP_SRC   := $(CODEBASE)/code/iot/Core/Startup/startup_stm32h573ritx.s
 CPU_FLAGS := -mcpu=cortex-m33 -mthumb -mfpu=fpv5-sp-d16 -mfloat-abi=hard
 
 # ----- Defines ---------------------------------------------------------------
-# GOCONTROLL_IOT selects the S1 platform inside the codebase.
+# GOCONTROLL_STM selects the S1 platform inside the codebase.
 DEFINES := \
 	-D$(TARGET_MCU) \
 	-DUSE_HAL_DRIVER \
-	-DGOCONTROLL_IOT \
+	-DGOCONTROLL_STM \
 	-DUSE_FULL_LL_DRIVER=0
 
 # ----- Include paths ---------------------------------------------------------
@@ -115,15 +115,15 @@ INCLUDES = \
 	$(UNIT_INCLUDES) \
 	-I$(CODEBASE)/code \
 	-I$(CODEBASE)/code/modules \
-	-I$(CODEBASE)/code/iot/Core/Inc \
-	-I$(CODEBASE)/code/iot/Drivers/CMSIS/Include \
-	-I$(CODEBASE)/code/iot/Drivers/CMSIS/Device/ST/STM32H5xx/Include \
-	-I$(CODEBASE)/code/iot/Drivers/STM32H5xx_HAL_Driver/Inc \
-	-I$(CODEBASE)/code/iot/Drivers/STM32H5xx_HAL_Driver/Inc/Legacy \
-	-I$(CODEBASE)/code/iot/Drivers/segger/Inc \
-	-I$(CODEBASE)/code/iot/Middlewares/Third_Party/FreeRTOS/Source/include \
-	-I$(CODEBASE)/code/iot/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2 \
-	-I$(CODEBASE)/code/iot/Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM33_NTZ/non_secure
+	-I$(CODEBASE)/code/stm/Core/Inc \
+	-I$(CODEBASE)/code/stm/Drivers/CMSIS/Include \
+	-I$(CODEBASE)/code/stm/Drivers/CMSIS/Device/ST/STM32H5xx/Include \
+	-I$(CODEBASE)/code/stm/Drivers/STM32H5xx_HAL_Driver/Inc \
+	-I$(CODEBASE)/code/stm/Drivers/STM32H5xx_HAL_Driver/Inc/Legacy \
+	-I$(CODEBASE)/code/stm/Drivers/segger/Inc \
+	-I$(CODEBASE)/code/stm/Middlewares/Third_Party/FreeRTOS/Source/include \
+	-I$(CODEBASE)/code/stm/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2 \
+	-I$(CODEBASE)/code/stm/Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM33_NTZ/non_secure
 
 # ----- Sources ---------------------------------------------------------------
 # Application sources (every .c under $(APP_DIR)/app/src/).
@@ -133,7 +133,7 @@ APP_SOURCES := $(wildcard $(APP_DIR)/app/src/*.c)
 UNIT_SOURCES := $(foreach d,$(UNIT_DIRS),$(wildcard $(d)/src/*.c))
 
 # GOcontroll public codebase - root .c files. We compile them all; each has an
-# internal GOCONTROLL_IOT branch (or is platform-agnostic).
+# internal GOCONTROLL_STM branch (or is platform-agnostic).
 CODEBASE_ROOT_SOURCES := \
 	$(CODEBASE)/code/GO_board.c \
 	$(CODEBASE)/code/GO_communication_can.c \
@@ -148,18 +148,18 @@ CODEBASE_ROOT_SOURCES := \
 	$(CODEBASE)/code/print.c
 
 # STM32H5 platform glue (peripheral inits, IRQ vectors, system clock, etc.).
-IOT_CORE_SOURCES := $(wildcard $(CODEBASE)/code/iot/Core/Src/*.c)
+STM_CORE_SOURCES := $(wildcard $(CODEBASE)/code/stm/Core/Src/*.c)
 
 # STM32H5 HAL drivers - every Src/*.c is compiled; each is internally gated
 # by HAL_<MODULE>_MODULE_ENABLED defines in stm32h5xx_hal_conf.h, so unused
 # modules emit nothing.
-HAL_SOURCES := $(wildcard $(CODEBASE)/code/iot/Drivers/STM32H5xx_HAL_Driver/Src/*.c)
+HAL_SOURCES := $(wildcard $(CODEBASE)/code/stm/Drivers/STM32H5xx_HAL_Driver/Src/*.c)
 
 # SEGGER RTT for SEGGER_RTT_printf() / info() output over J-Link.
-SEGGER_SOURCES := $(wildcard $(CODEBASE)/code/iot/Drivers/segger/Src/*.c)
+SEGGER_SOURCES := $(wildcard $(CODEBASE)/code/stm/Drivers/segger/Src/*.c)
 
 # FreeRTOS V10.6.2 - kernel + ARM_CM33_NTZ port + heap_4 + CMSIS_RTOS_V2.
-FREERTOS_DIR := $(CODEBASE)/code/iot/Middlewares/Third_Party/FreeRTOS/Source
+FREERTOS_DIR := $(CODEBASE)/code/stm/Middlewares/Third_Party/FreeRTOS/Source
 FREERTOS_SOURCES := \
 	$(FREERTOS_DIR)/tasks.c \
 	$(FREERTOS_DIR)/list.c \
@@ -177,7 +177,7 @@ C_SOURCES := \
 	$(APP_SOURCES) \
 	$(UNIT_SOURCES) \
 	$(CODEBASE_ROOT_SOURCES) \
-	$(IOT_CORE_SOURCES) \
+	$(STM_CORE_SOURCES) \
 	$(HAL_SOURCES) \
 	$(SEGGER_SOURCES) \
 	$(FREERTOS_SOURCES)

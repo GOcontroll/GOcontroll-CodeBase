@@ -118,7 +118,7 @@ int GO_controller_info_get_module_info(uint8_t slot, _moduleInfo *info) {
 /****************************************************************************************
  * S1 implementation — reads high-water marks updated by ControllerInfoTask in GO_board.c
  ****************************************************************************************/
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 #include "rtc.h"
 extern RTC_HandleTypeDef hrtc;
@@ -143,9 +143,9 @@ void GO_controller_info_get_rtc_time(_rtcTime *t) {
 	t->hour = 0; t->minute = 0; t->second = 0;
 }
 
-#endif /* GOCONTROLL_IOT / GOCONTROLL_LINUX (RTC) */
+#endif /* GOCONTROLL_STM / GOCONTROLL_LINUX (RTC) */
 
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 extern uint32_t go_board_model_stack_hwm;
 extern uint32_t go_board_xcp_stack_hwm;
@@ -215,4 +215,4 @@ uint32_t GO_controller_info_get_free_heap(void)   { return 0; }
 ***************************************************************************************/
 uint8_t GO_controller_info_get_cpu_load(void)     { return 0; }
 
-#endif /* GOCONTROLL_IOT / GOCONTROLL_LINUX */
+#endif /* GOCONTROLL_STM / GOCONTROLL_LINUX */

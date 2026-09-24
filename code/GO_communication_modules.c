@@ -4,7 +4,7 @@
  *         Handles SPI send/receive, chip selects, module reset and bootloader escape.
  *
  *         Platform selection via preprocessor define:
- *           GOCONTROLL_IOT  →  STM32H5 (Moduline S1)
+ *           GOCONTROLL_STM  →  STM32H5 (Moduline S1)
  *           (default)       →  Linux/IMX8 (Moduline L4 / Moduline M1)
  * \internal
  *----------------------------------------------------------------------------------------
@@ -49,7 +49,7 @@
 /****************************************************************************************
  * Include files — platform-specific
  ****************************************************************************************/
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 #include "cmsis_os.h"
 #include "FreeRTOS.h"
@@ -68,7 +68,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#endif /* GOCONTROLL_IOT / GOCONTROLL_LINUX */
+#endif /* GOCONTROLL_STM / GOCONTROLL_LINUX */
 
 /****************************************************************************************
  * Macro definitions
@@ -101,7 +101,7 @@
  ****************************************************************************************/
 _hardwareConfig hardwareConfig;
 
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 static osSemaphoreId_t s_spi_done = NULL;
 /* Result of the last DMA transfer, written by the HAL completion/error callbacks
  * and read back by GO_communication_modules_spi_wait(): 0 = completed OK,
@@ -191,7 +191,7 @@ void GO_communication_modules_dummy_spi(uint8_t module) {
 		HAL_GPIO_WritePin(SPI_MOD2_CS_GPIO_Port, SPI_MOD2_CS_Pin, GPIO_PIN_SET);
 	}
 }
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_STM */
 
 /****************************************************************************************
  * Linux-specific internal helpers
@@ -311,7 +311,7 @@ int GO_communication_modules_initialize(uint8_t moduleslot) {
 		return -ENODEV;
 	}
 
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 	if (s_spi_done == NULL) {
 		s_spi_done = osSemaphoreNew(1, 0, NULL);
 	}
@@ -411,7 +411,7 @@ int GO_communication_modules_initialize(uint8_t moduleslot) {
 ** \return    none
 ***************************************************************************************/
 void GO_communication_modules_delay_1ms(uint32_t times) {
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 	if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
 		osDelay(times);
 	} else {
@@ -438,7 +438,7 @@ void GO_communication_modules_delay_1ms(uint32_t times) {
 ** \return    0 on success, -1 on failure.
 ***************************************************************************************/
 int8_t GO_communication_modules_reset_state_module(uint8_t module, uint8_t state) {
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 	if (module == 0) {
 		HAL_GPIO_WritePin(MOD1_RESET_GPIO_Port, MOD1_RESET_Pin, !state);
 	} else if (module == 1) {
@@ -459,7 +459,7 @@ int8_t GO_communication_modules_reset_state_module(uint8_t module, uint8_t state
 
 /****************************************************************************************/
 
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 /* Read the ACTUAL pad level of a module's reset line. The pin is an open-drain output,
  * so reading IDR reports what the pad is really doing rather than what was written to
  * ODR — which is exactly what is needed to prove the line moves at all. */
@@ -514,7 +514,7 @@ static void GO_communication_modules_reset_pin_dump(uint8_t module, const char *
 **            detection path and by any application-level recovery/adopt path, so the
 **            two can never drift apart in pulse width or ordering.
 **
-**            On IOT the pad level is sampled back while reset is asserted and again
+**            On STM the pad level is sampled back while reset is asserted and again
 **            after release. The reset pin is open-drain with a pull-up, so a failure to
 **            read LOW while asserted means the pad is not being driven at all — on the
 **            STM32H5 MOD1_RESET is PB4, which is also NJTRST, so an attached debugger
@@ -531,7 +531,7 @@ int8_t GO_communication_modules_reset_module(uint8_t moduleslot, uint32_t assert
 	GO_communication_modules_reset_state_module(moduleslot, 1);   /* assert = drive low */
 	GO_communication_modules_delay_1ms(1);
 
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 	/* Eenmalig per slot de rauwe registerstand, zodat "de pin gaat niet laag" op de
 	 * analyzer eenduidig te scheiden is van een MCU die hem wel degelijk laag trekt. */
 	static uint8_t s_dumped[8] = {0};
@@ -555,7 +555,7 @@ int8_t GO_communication_modules_reset_module(uint8_t moduleslot, uint32_t assert
 	GO_communication_modules_reset_state_module(moduleslot, 0);   /* release = pulled up */
 	GO_communication_modules_delay_1ms(MODULE_RESET_SETTLE_MS);
 
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 	if (GO_communication_modules_reset_pin_level(moduleslot) != GPIO_PIN_SET) {
 		err("module %d: RESET line stuck LOW after release — module is held in reset\n",
 			moduleslot + 1);
@@ -586,7 +586,7 @@ int GO_communication_modules_escape_from_bootloader(uint8_t module,
 		&dataTx[0], BOOTMESSAGELENGTH - 1);
 
 	/* Platform-specific: transmit and receive */
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 	if (module == 0) {
 		HAL_GPIO_WritePin(SPI_MOD1_CS_GPIO_Port, SPI_MOD1_CS_Pin,
 						  GPIO_PIN_RESET);
@@ -672,7 +672,7 @@ int GO_communication_modules_send_spi(uint8_t command, uint8_t dataLength,
 		GO_communication_modules_checksum_calculator(&dataTx[0], dataLength - 1);
 
 	/* Platform-specific: transmit */
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 	/* Pre-transmission delay — BEFORE asserting CS, not after.
 	 *
 	 * Callers use this as an INTER-MESSAGE settle: GO_module_output_configuration() passes
@@ -757,7 +757,7 @@ int GO_communication_modules_send_receive_spi(uint8_t command, uint8_t dataLengt
 		GO_communication_modules_checksum_calculator(&dataTx[0], dataLength - 1);
 
 	/* Platform-specific: transmit and receive */
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 	if (module == 0) {
 		HAL_GPIO_WritePin(SPI_MOD1_CS_GPIO_Port, SPI_MOD1_CS_Pin,
 						  GPIO_PIN_RESET);
@@ -816,10 +816,10 @@ int GO_communication_modules_send_receive_spi(uint8_t command, uint8_t dataLengt
 
 /****************************************************************************************
  ****************************************************************************************
- * STM32H5 (GOCONTROLL_IOT) specific implementations
+ * STM32H5 (GOCONTROLL_STM) specific implementations
  ****************************************************************************************
  ****************************************************************************************/
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 /**************************************************************************************
 ** \brief     Delay execution using the RTOS scheduler (non-blocking for other tasks).
@@ -828,6 +828,6 @@ int GO_communication_modules_send_receive_spi(uint8_t command, uint8_t dataLengt
 ***************************************************************************************/
 void GO_communication_modules_delay_1ms_os(uint32_t times) { HAL_Delay(times); }
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_STM */
 
 /* end of GO_communication_modules.c */

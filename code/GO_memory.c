@@ -4,7 +4,7 @@
  *         Combines MemoryEmulation (key-value NVM) and MemoryDiagnostic (DTC storage).
  *
  *         Platform selection via preprocessor define:
- *           GOCONTROLL_IOT  →  STM32H5 (Moduline S1): TODO — Flash/EEPROM backend
+ *           GOCONTROLL_STM  →  STM32H5 (Moduline S1): TODO — Flash/EEPROM backend
  *           (default)       →  Linux/IMX8 (Moduline L4 / Moduline M1): filesystem
  * \internal
  *----------------------------------------------------------------------------------------
@@ -45,10 +45,10 @@
 
 /****************************************************************************************
  ****************************************************************************************
- * STM32H5 (GOCONTROLL_IOT) specific implementations
+ * STM32H5 (GOCONTROLL_STM) specific implementations
  ****************************************************************************************
  ****************************************************************************************/
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 #include "stm32h5xx_hal.h"
 #include "cmsis_os2.h"
@@ -906,6 +906,6 @@ static int remove_directory(const char *path) {
 	return r;
 }
 
-#endif /* GOCONTROLL_IOT / GOCONTROLL_LINUX */
+#endif /* GOCONTROLL_STM / GOCONTROLL_LINUX */
 
 /* end of GO_memory.c */

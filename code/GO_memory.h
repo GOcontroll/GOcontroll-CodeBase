@@ -4,7 +4,7 @@
  *         Combines MemoryEmulation (key-value NVM) and MemoryDiagnostic (DTC storage).
  *
  *         Platform selection via preprocessor define:
- *           GOCONTROLL_IOT  →  STM32H5 (Moduline S1): TODO — Flash/EEPROM backend
+ *           GOCONTROLL_STM  →  STM32H5 (Moduline S1): TODO — Flash/EEPROM backend
  *           (default)       →  Linux/IMX8 (Moduline L4 / Moduline M1): filesystem
  * \internal
  *----------------------------------------------------------------------------------------

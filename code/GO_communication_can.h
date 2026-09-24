@@ -40,7 +40,7 @@ extern "C" {
 /****************************************************************************************
 * S1 platform (STM32 FDCAN via HAL)
 ****************************************************************************************/
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -220,7 +220,7 @@ int GO_communication_can_rx_get(uint8_t canInterface, uint32_t can_id,
 int GO_communication_can_rx_update_id(uint8_t canInterface, uint32_t old_id,
                                        uint32_t new_id);
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_STM */
 
 
 /****************************************************************************************

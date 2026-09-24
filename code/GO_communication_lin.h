@@ -5,7 +5,7 @@
  *         initialisation.
  *
  *         Platform selection via preprocessor define:
- *           GOCONTROLL_IOT  →  STM32H5 (Moduline S1): TODO
+ *           GOCONTROLL_STM  →  STM32H5 (Moduline S1): TODO
  *           (default)       →  Linux/IMX8 (Moduline L4 / Moduline M1)
  *
  *         This code is heavily inspired by slLIN prototype code developed by:
@@ -94,9 +94,9 @@ struct sllin {
 };
 
 /****************************************************************************************
- * Data declarations — STM32H5 (GOCONTROLL_IOT) specific
+ * Data declarations — STM32H5 (GOCONTROLL_STM) specific
  ****************************************************************************************/
-#elif defined(GOCONTROLL_IOT)
+#elif defined(GOCONTROLL_STM)
 
 /*
  * TODO: add STM32H5 LIN data types here.
@@ -111,7 +111,7 @@ struct sllin {
  *   #include "usart.h"
  */
 
-#endif /* GOCONTROLL_LINUX / GOCONTROLL_IOT */
+#endif /* GOCONTROLL_LINUX / GOCONTROLL_STM */
 
 /****************************************************************************************
  * Function prototypes — platform-independent API

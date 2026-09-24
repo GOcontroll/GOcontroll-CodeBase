@@ -30,7 +30,7 @@
 
 #include "GO_fault.h"
 
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 #include "SEGGER_RTT.h"
 
@@ -55,4 +55,4 @@ void vApplicationMallocFailedHook(void)
 	while (1) {}
 }
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_STM */

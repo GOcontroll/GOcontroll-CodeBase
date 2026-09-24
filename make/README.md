@@ -3,7 +3,7 @@
 Dit is de **platform-generieke** build-laag voor een GOcontroll Moduline S1
 (STM32H573RI) applicatie. Hij leeft bewust in CodeBase, naast de HAL die hij
 compileert: de paden in `s1.mk` verwijzen rechtstreeks naar de interne layout van
-`code/iot/...` (linker-script, startup, HAL, FreeRTOS). Zo versioneren build-laag en
+`code/stm/...` (linker-script, startup, HAL, FreeRTOS). Zo versioneren build-laag en
 HAL samen — geen cross-repo drift.
 
 ## Inhoud

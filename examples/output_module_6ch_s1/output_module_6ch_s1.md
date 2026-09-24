@@ -186,7 +186,7 @@ With the CubeMX defaults the STM32H5 SPI emits a spurious clock edge at every `S
 which shifts **every** module frame left by one bit — the bootloader signature `9,45,9`
 reads back as `18,18,90`, module id `20,20,2` as `40,40,4` — and detection fails for every
 module with a misleading "contested slot" error. Both settings are required together. See
-AGENTS.md rule 14 and `code/iot/Core/Src/spi.c`.
+AGENTS.md rule 14 and `code/stm/Core/Src/spi.c`.
 
 ### 7. Practical S1 details that cost time
 

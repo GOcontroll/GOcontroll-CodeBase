@@ -4,7 +4,7 @@
  *         Interfaces the XCP stack with the underlying transport (CAN, TCP, UDP).
  *
  *         Platform selection via preprocessor define:
- *           GOCONTROLL_IOT  →  STM32H5 (Moduline S1): FDCAN via HAL + FreeRTOS
+ *           GOCONTROLL_STM  →  STM32H5 (Moduline S1): FDCAN via HAL + FreeRTOS
  *           (default)       →  Linux/IMX8 (Moduline L4 / Moduline M1): sockets
  *
  * \internal
@@ -50,7 +50,7 @@
 /****************************************************************************************
  * Include files — platform-specific
  ****************************************************************************************/
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 #include "Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h"
 #include "cmsis_os2.h"
@@ -96,7 +96,7 @@
 #  define kXcpStationIdLength  (sizeof(kXcpStationIdString) - 1u)
 #endif
 
-#endif /* GOCONTROLL_IOT / GOCONTROLL_LINUX */
+#endif /* GOCONTROLL_STM / GOCONTROLL_LINUX */
 
 /****************************************************************************************
  * Macro definitions
@@ -173,10 +173,10 @@ void GO_xcp_write_data(void *data, uint8_t elements, void *location) {
 
 /****************************************************************************************
  ****************************************************************************************
- * STM32H5 (GOCONTROLL_IOT) specific implementations
+ * STM32H5 (GOCONTROLL_STM) specific implementations
  ****************************************************************************************
  ****************************************************************************************/
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 
 /****************************************************************************************
@@ -853,6 +853,6 @@ uint8_t GO_xcp_user_cmd(uint8_t *dataReceived) {
 	}
 }
 
-#endif /* GOCONTROLL_IOT / GOCONTROLL_LINUX */
+#endif /* GOCONTROLL_STM / GOCONTROLL_LINUX */
 
 /* end of GO_xcp.c */

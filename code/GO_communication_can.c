@@ -35,7 +35,7 @@
 /****************************************************************************************
 * S1 platform (STM32 FDCAN via HAL)
 ****************************************************************************************/
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -384,7 +384,7 @@ int GO_communication_can_rx_update_id(uint8_t canInterface, uint32_t old_id,
     return -1;
 }
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_STM */
 
 
 /****************************************************************************************

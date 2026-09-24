@@ -6,11 +6,10 @@ flavours share the same public API:
 | Define              | Target                                   |
 |---------------------|------------------------------------------|
 | `GOCONTROLL_LINUX`  | Moduline L4 / Moduline M1 (IMX8 ARM64) |
-| `GOCONTROLL_IOT`    | Moduline S1 (STM32H5 + FreeRTOS)         |
+| `GOCONTROLL_STM`    | Moduline S1 (STM32H5 + FreeRTOS)         |
 
-> The S1 platform is selected by the legacy `GOCONTROLL_IOT` define and lives
-> under `code/iot/`. Source identifiers are kept for compatibility with the
-> previous product naming.
+> The S1 platform is selected by the `GOCONTROLL_STM` define and its STM32
+> subtree lives under `code/stm/` (formerly `GOCONTROLL_IOT` / `code/iot/`).
 
 ## Repo layout
 
@@ -67,4 +66,4 @@ fail-safe watchdog if no frame arrives within **400 ms**.
 ## License
 
 Library code: see header doc-blocks (MIT-style). Vendored libraries under
-`code/iot/Drivers/` retain their original licenses.
+`code/stm/Drivers/` retain their original licenses.

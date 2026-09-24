@@ -6,7 +6,7 @@
  *         err()  — error output, always active (routes to stderr on Linux)
  *
  *         Platform selection via preprocessor define:
- *           GOCONTROLL_IOT  →  STM32H5: SEGGER RTT
+ *           GOCONTROLL_STM  →  STM32H5: SEGGER RTT
  *           (default)       →  Linux/IMX8: stdio
  * \internal
  *----------------------------------------------------------------------------------------
@@ -42,9 +42,9 @@
 #include <stdarg.h>
 
 /****************************************************************************************
- * STM32H5 (GOCONTROLL_IOT) implementation — SEGGER RTT
+ * STM32H5 (GOCONTROLL_STM) implementation — SEGGER RTT
  ****************************************************************************************/
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 #include "SEGGER_RTT.h"
 
@@ -105,6 +105,6 @@ void err(char *format, ...) {
 	va_end(args);
 }
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_STM */
 
 /* end of print.c */

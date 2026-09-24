@@ -33,7 +33,7 @@
 
 #include "GO_communication_esp.h"
 
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 #include <string.h>
 #include "rtc.h"
@@ -801,4 +801,4 @@ __attribute__((weak)) void GO_communication_esp_on_time_sync(
     HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
 }
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_STM */

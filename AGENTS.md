@@ -10,10 +10,10 @@ It supports two build flavours sharing the same public API:
 
 Pick exactly **one** of these defines per build. Never both.
 
-> **Naming note:** the S1 platform is selected by the legacy build define
-> `GOCONTROLL_IOT` and lives under `code/iot/`. The source identifiers are
-> kept for compatibility with the previous product naming; all prose in
-> this repo refers to the platform as **S1**.
+> **Naming note:** the S1 platform is selected by the build define
+> `GOCONTROLL_STM` and its STM32 subtree lives under `code/stm/` (both
+> formerly `GOCONTROLL_IOT` / `code/iot/`). Identifiers name the MCU family
+> (STM); all prose in this repo refers to the product as **S1**.
 
 Top-level layout:
 
@@ -167,7 +167,7 @@ examples/    Self-contained main()s, one per topic (Linux only at present)
     e.g. reads `1,1,43,2,...`); NSSP disabled alone (AFCNTR=0) does nothing. SPI clock
     speed and clock phase (CPHA/CPOL) are irrelevant — ruled out on the analyzer. Do
     not revert either one.
-    See `code/iot/Core/Src/spi.c` (`MX_SPI1_Init`).
+    See `code/stm/Core/Src/spi.c` (`MX_SPI1_Init`).
 
 15. **A module is configured EXACTLY ONCE — never in a retry loop, never again at
     runtime.** `*_configuration()` is a single commit, and repeating it breaks the

@@ -2,7 +2,7 @@
  * \file   GO_gps.h
  * \brief  Platform-agnostic GPS interface for GOcontroll targets.
  *         Select the target implementation at compile time via the
- *         GOCONTROLL_LINUX or GOCONTROLL_IOT preprocessor macro.
+ *         GOCONTROLL_LINUX or GOCONTROLL_STM preprocessor macro.
  * \internal
  *----------------------------------------------------------------------------------------
  *                          C O P Y R I G H T

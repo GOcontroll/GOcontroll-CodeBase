@@ -5,7 +5,7 @@
  *         initialisation.
  *
  *         Platform selection via preprocessor define:
- *           GOCONTROLL_IOT  →  STM32H5 (Moduline S1): TODO
+ *           GOCONTROLL_STM  →  STM32H5 (Moduline S1): TODO
  *           (default)       →  Linux/IMX8 (Moduline L4 / Moduline M1)
  *
  *         This code is heavily inspired by slLIN prototype code developed by:
@@ -49,10 +49,10 @@
 
 /****************************************************************************************
  ****************************************************************************************
- * STM32H5 (GOCONTROLL_IOT) specific implementations
+ * STM32H5 (GOCONTROLL_STM) specific implementations
  ****************************************************************************************
  ****************************************************************************************/
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 /*
  * TODO: Implement LIN communication for STM32H5.
@@ -414,6 +414,6 @@ static int tty_set_mode(struct sllin_tty *tty, int baudrate)
 	return 0;
 }
 
-#endif /* GOCONTROLL_IOT / GOCONTROLL_LINUX */
+#endif /* GOCONTROLL_STM / GOCONTROLL_LINUX */
 
 /* end of GO_communication_lin.c */

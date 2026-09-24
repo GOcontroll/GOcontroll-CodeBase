@@ -60,7 +60,7 @@ extern "C" {
 * 519-byte frame takes ≈ 45 ms, so a 100 ms tick is always safe.
 * See GOcontroll-CodeBase/AGENTS.md rule 11.
 ****************************************************************************************/
-#ifdef GOCONTROLL_IOT
+#ifdef GOCONTROLL_STM
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -390,7 +390,7 @@ void GO_communication_esp_on_gps_data(const EspInterface_GpsData_t *gps);
 ***************************************************************************************/
 void GO_communication_esp_on_modem_status(uint8_t state, const char *ip);
 
-#endif /* GOCONTROLL_IOT */
+#endif /* GOCONTROLL_STM */
 
 #ifdef __cplusplus
 }

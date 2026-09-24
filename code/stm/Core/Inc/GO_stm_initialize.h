@@ -1,8 +1,8 @@
 /**************************************************************************************
-** \file      GO_iot_initialize.h
+** \file      GO_stm_initialize.h
 ** \brief     GOcontroll S1 controller platform initialization.
 **            Contains all hardware and middleware initialization required to run the
-**            GOcontroll S1 controller. Call GO_iot_initialize() once at startup,
+**            GOcontroll S1 controller. Call GO_stm_initialize() once at startup,
 **            before any model or application code is executed.
 ** \internal
 ***************************************************************************************
@@ -32,8 +32,8 @@
 ** \endinternal
 ****************************************************************************************/
 
-#ifndef GO_IOT_INITIALIZE_H
-#define GO_IOT_INITIALIZE_H
+#ifndef GO_STM_INITIALIZE_H
+#define GO_STM_INITIALIZE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,7 +49,7 @@ extern "C" {
 **         kernel, and the controller info task.
 **         Call this once at the start of main(), before any application or model code.
 ****************************************************************************************/
-void GO_iot_initialize(void);
+void GO_stm_initialize(void);
 
 /****************************************************************************************
 ** \brief  Configure the system clock (250 MHz from 12 MHz HSE via PLL1).
@@ -60,4 +60,4 @@ void SystemClock_Config(void);
 }
 #endif
 
-#endif /* GO_IOT_INITIALIZE_H */
+#endif /* GO_STM_INITIALIZE_H */
