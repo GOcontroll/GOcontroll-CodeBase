@@ -16,7 +16,8 @@ HAL samen — geen cross-repo drift.
 | `jlink/reset.jlink` | `make reset` — reset + run zonder flashen. |
 
 > `make flash` gebruikt géén statisch script: `s1.mk` genereert
-> `$(BUILD_DIR)/flash.jlink` met een **absoluut** pad naar `$(FIRMWARE)`.
+> `$(BUILD_DIR)/flash.jlink` met een **absoluut** pad naar `$(BIN)`
+> (`loadbin` op `$(FLASH_BASE)` = 0x08000000, daarna `verifybin`).
 > J-Link Commander kent geen variabelen, dus een statisch script zou het
 > firmware-pad moeten hardcoderen — en dat pad hangt af van de map waarin `make`
 > draait, die per project-layout verschilt. Erger nog: bij een verkeerd pad meldt
