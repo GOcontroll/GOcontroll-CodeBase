@@ -29,7 +29,7 @@
 # Targets:
 #   make            Build everything (default).
 #   make build      Same as above.
-#   make clean      Remove build/ and deploy/ directories.
+#   make clean      Remove build/ and the binaries in deploy/ (keeps CHANGELOG.md).
 #   make flash      Flash via J-Link (SWD).
 #   make erase      Mass-erase the STM32 via J-Link.
 #   make reset      Reset target via J-Link.
@@ -75,6 +75,14 @@ LD      := $(CROSS_COMPILE)gcc
 OBJCOPY := $(CROSS_COMPILE)objcopy
 SIZE    := $(CROSS_COMPILE)size
 GDB     := $(CROSS_COMPILE)gdb
+
+# Python voor de hulpscripts (rtt_watch, stack-check). Op Windows heet de
+# interpreter `python`; `python3` is daar vaak alleen de Microsoft Store-stub.
+ifeq ($(OS),Windows_NT)
+PYTHON  ?= python
+else
+PYTHON  ?= python3
+endif
 
 # J-Link CLI.
 # Windows: installed under "Program Files\SEGGER\JLink_Vxxx\". Override on the
@@ -141,6 +149,13 @@ UNIT_SOURCES := $(foreach d,$(UNIT_DIRS),$(wildcard $(d)/src/*.c))
 
 # GOcontroll public codebase - root .c files. We compile them all; each has an
 # internal GOCONTROLL_IOT branch (or is platform-agnostic).
+#
+# Module drivers: ALL types the configurator offers (input, 4-20 mA, bridge,
+# output), not only the ones a project uses. The application-builder never edits
+# the build rules, so a list with only GO_module_input.c let every project with an
+# output or bridge module fail at link time (undefined reference to
+# GO_module_output_*). -ffunction-sections plus --gc-sections drop the drivers a
+# project does not call, so this costs no flash.
 CODEBASE_ROOT_SOURCES := \
 	$(CODEBASE)/code/GO_board.c \
 	$(CODEBASE)/code/GO_communication_can.c \
@@ -151,7 +166,10 @@ CODEBASE_ROOT_SOURCES := \
 	$(CODEBASE)/code/GO_fault.c \
 	$(CODEBASE)/code/GO_gps.c \
 	$(CODEBASE)/code/GO_memory.c \
+	$(CODEBASE)/code/modules/GO_module_bridge.c \
 	$(CODEBASE)/code/modules/GO_module_input.c \
+	$(CODEBASE)/code/modules/GO_module_input_420ma.c \
+	$(CODEBASE)/code/modules/GO_module_output.c \
 	$(CODEBASE)/code/print.c
 
 # STM32H5 platform glue (peripheral inits, IRQ vectors, system clock, etc.).
@@ -288,9 +306,14 @@ size: $(ELF)
 	@echo "---"
 	@$(SIZE) $(ELF)
 
+# Verwijdert build-output: de hele build/-map + de binaries in deploy/.
+# deploy/CHANGELOG.md (release-historie, geschreven door de Deploy-stap van de
+# Configurator) blijft staan: clean wist alleen wat de build zelf genereert.
 clean:
-	@echo "  RM   $(BUILD_DIR) $(DEPLOY_DIR)"
-	@rm -rf $(BUILD_DIR) $(DEPLOY_DIR)
+	@echo "  RM   $(BUILD_DIR)"
+	@rm -rf $(BUILD_DIR)
+	@echo "  RM   $(DEPLOY_DIR) binaries  (CHANGELOG.md blijft behouden)"
+	@rm -f $(ELF) $(HEX) $(BIN) $(DEPLOY_DIR)/$(PROJECT).map $(FIRMWARE)
 
 # =============================================================================
 # Flash / debug via J-Link CLI
@@ -372,7 +395,7 @@ rtt:
 rtt_watch:
 	@echo "  RTT-WATCH  heap/stack monitor (Ctrl-C to stop)"
 	@echo "             heap warn<4096B crit<1024B  |  stack warn<64w crit<16w"
-	@python3 $(CODEBASE)/make/rtt_watch.py \
+	@$(PYTHON) $(CODEBASE)/make/rtt_watch.py \
 	    --jlink-dir "$(JLINK_DIR)" \
 	    --device $(CHIP_JLINK) \
 	    --jlink-if $(JLINK_IF) \
@@ -382,7 +405,7 @@ rtt_watch:
 
 # Analyse .su files from the last build. Run 'make build' first.
 stack-check:
-	@python3 $(CODEBASE)/make/stack_check.py $(BUILD_DIR)
+	@$(PYTHON) $(CODEBASE)/make/stack_check.py $(BUILD_DIR)
 
 help:
 	@echo "Targets:  all  clean  flash  erase  reset  gdbserver  debug  rtt  rtt_watch  size  stack-check"
