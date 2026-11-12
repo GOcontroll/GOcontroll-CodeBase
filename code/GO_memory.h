@@ -41,6 +41,7 @@
 /****************************************************************************************
  * Include files
  ****************************************************************************************/
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -87,6 +88,77 @@ void GO_memory_emulation_write(char *key, float value, float *oldValue);
 ** \return    none
 ***************************************************************************************/
 void GO_memory_emulation_read(char *key, float *value);
+
+/****************************************************************************************
+ * Function prototypes — Application configuration
+ *
+ * The controller's Web UI keeps the application configuration in one flat JSON object
+ * (Configuration -> "Application configuration"):
+ *
+ *     { "KEY": "value", "OTHER_KEY": "42" }
+ *
+ * Every value is stored as text, also numbers. Unlike MemoryEmulation this store holds
+ * strings, so it is where an application keeps settings such as an MQTT topic, a
+ * broker host or a location name. The Web UI rewrites the file atomically on "Save
+ * configuration" and does not notify the application: poll GO_config_changed() and
+ * re-read when it returns 1.
+ *
+ * The Web UI only shows keys that are already in the file, so an application seeds
+ * its own keys with GO_config_ensure() at start-up.
+ *
+ * Linux only. On the S1 (no filesystem) every call returns -ENOSYS.
+ ****************************************************************************************/
+
+/** Default location of the application configuration on the controller. */
+#define GO_CONFIG_PATH "/etc/gocontroll/config.json"
+
+/**************************************************************************************
+** \brief     Use another file than GO_CONFIG_PATH (tests, non-standard images).
+**            The string is not copied; it must stay valid. NULL restores the default.
+** \param     path  path of the JSON file
+** \return    none
+***************************************************************************************/
+void GO_config_set_path(const char *path);
+
+/**************************************************************************************
+** \brief     Read a configuration value as text.
+** \param     key    configuration key
+** \param     value  output buffer, always NUL-terminated when size > 0
+** \param     size   size of the output buffer in bytes
+** \return    0 on success, -ENOENT if the file or the key is absent, -ENOSPC if the
+**            value did not fit (value holds the truncated text), -EBADMSG if the file
+**            is not a flat JSON object, -EIO on a read error.
+***************************************************************************************/
+int GO_config_read_string(const char *key, char *value, size_t size);
+
+/**************************************************************************************
+** \brief     Read a configuration value as a number.
+** \param     key    configuration key
+** \param     value  output; unchanged unless the call returns 0
+** \return    0 on success, -EINVAL if the value is not a number, otherwise as
+**            GO_config_read_string().
+***************************************************************************************/
+int GO_config_read_number(const char *key, float *value);
+
+/**************************************************************************************
+** \brief     Add a key with a default value if it is not in the file yet.
+**            An existing value is never touched. Creates the file (and its
+**            directory) when absent. The file is replaced atomically; other keys are
+**            preserved.
+** \param     key            configuration key
+** \param     default_value  text stored when the key is absent
+** \return    0 if the key was already present, 1 if it was added, negative errno on
+**            failure.
+***************************************************************************************/
+int GO_config_ensure(const char *key, const char *default_value);
+
+/**************************************************************************************
+** \brief     Check whether the configuration file changed since the previous call.
+**            Cheap (one stat()); meant to be polled, e.g. once per second.
+** \return    1 on the first call and whenever the file was replaced or modified,
+**            0 if unchanged, -ENOENT if the file does not exist.
+***************************************************************************************/
+int GO_config_changed(void);
 
 /****************************************************************************************
  * Function prototypes — MemoryDiagnostic

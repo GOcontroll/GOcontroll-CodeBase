@@ -608,6 +608,40 @@ void GO_memory_diagnostic_delete_single(uint32_t spn, uint8_t fmi, uint8_t oc) {
 }
 
 /****************************************************************************************
+ * Application configuration — not available on the S1 (no filesystem)
+ ****************************************************************************************/
+
+#include <errno.h>
+
+void GO_config_set_path(const char *path) {
+	(void)path;
+}
+
+int GO_config_read_string(const char *key, char *value, size_t size) {
+	(void)key;
+	if (value != NULL && size > 0U) {
+		value[0] = '\0';
+	}
+	return -ENOSYS;
+}
+
+int GO_config_read_number(const char *key, float *value) {
+	(void)key;
+	(void)value;
+	return -ENOSYS;
+}
+
+int GO_config_ensure(const char *key, const char *default_value) {
+	(void)key;
+	(void)default_value;
+	return -ENOSYS;
+}
+
+int GO_config_changed(void) {
+	return -ENOSYS;
+}
+
+/****************************************************************************************
  ****************************************************************************************
  * Linux specific implementations
  ****************************************************************************************
@@ -699,6 +733,444 @@ void GO_memory_emulation_read(char *key, float *value) {
 	read(fileId, &tempValue[0], 15);
 	close(fileId);
 	*value = strtof(tempValue, NULL);
+}
+
+/****************************************************************************************
+ * Application configuration — flat JSON object, see GO_memory.h
+ *
+ * The file is small (a handful of keys) and read only at start-up and after a change,
+ * so every call simply loads and scans the whole file: no cache that can go stale.
+ ****************************************************************************************/
+
+#define GO_CONFIG_MAX_SIZE	(64U * 1024U)
+#define GO_CONFIG_KEY_MAX	128U
+
+static const char *s_config_path = NULL;
+
+static const char *config_path(void) {
+	return (s_config_path != NULL) ? s_config_path : GO_CONFIG_PATH;
+}
+
+/****************************************************************************************/
+
+void GO_config_set_path(const char *path) {
+	s_config_path = path;
+}
+
+/****************************************************************************************/
+
+/* Load the whole file into a NUL-terminated heap buffer; the caller frees it. */
+static int config_load(char **text) {
+	*text = NULL;
+
+	FILE *f = fopen(config_path(), "rb");
+	if (f == NULL) {
+		return (errno == ENOENT) ? -ENOENT : -EIO;
+	}
+
+	char *buf = malloc(GO_CONFIG_MAX_SIZE + 1U);
+	if (buf == NULL) {
+		fclose(f);
+		return -ENOMEM;
+	}
+
+	size_t n	  = fread(buf, 1U, GO_CONFIG_MAX_SIZE, f);
+	int    read_error = ferror(f);
+	int    too_large  = (n == GO_CONFIG_MAX_SIZE) && (fgetc(f) != EOF);
+	fclose(f);
+
+	if (read_error || too_large) {
+		free(buf);
+		return read_error ? -EIO : -EFBIG;
+	}
+
+	buf[n] = '\0';
+	*text  = buf;
+	return 0;
+}
+
+/****************************************************************************************/
+
+static void json_skip_ws(const char **p) {
+	while (**p == ' ' || **p == '\t' || **p == '\n' || **p == '\r') {
+		(*p)++;
+	}
+}
+
+/* Append one byte to a bounded output; *n counts the full length, also past size. */
+static void json_put(char *out, size_t size, size_t *n, char c) {
+	if (out != NULL && *n + 1U < size) {
+		out[*n] = c;
+	}
+	(*n)++;
+}
+
+static void json_put_utf8(char *out, size_t size, size_t *n, uint32_t cp) {
+	if (cp < 0x80U) {
+		json_put(out, size, n, (char)cp);
+	} else if (cp < 0x800U) {
+		json_put(out, size, n, (char)(0xC0U | (cp >> 6)));
+		json_put(out, size, n, (char)(0x80U | (cp & 0x3FU)));
+	} else if (cp < 0x10000U) {
+		json_put(out, size, n, (char)(0xE0U | (cp >> 12)));
+		json_put(out, size, n, (char)(0x80U | ((cp >> 6) & 0x3FU)));
+		json_put(out, size, n, (char)(0x80U | (cp & 0x3FU)));
+	} else {
+		json_put(out, size, n, (char)(0xF0U | (cp >> 18)));
+		json_put(out, size, n, (char)(0x80U | ((cp >> 12) & 0x3FU)));
+		json_put(out, size, n, (char)(0x80U | ((cp >> 6) & 0x3FU)));
+		json_put(out, size, n, (char)(0x80U | (cp & 0x3FU)));
+	}
+}
+
+static int json_hex4(const char *p, uint32_t *cp) {
+	*cp = 0U;
+	for (int i = 0; i < 4; i++) {
+		char     c = p[i];
+		uint32_t d;
+		if (c >= '0' && c <= '9') {
+			d = (uint32_t)(c - '0');
+		} else if (c >= 'a' && c <= 'f') {
+			d = (uint32_t)(c - 'a' + 10);
+		} else if (c >= 'A' && c <= 'F') {
+			d = (uint32_t)(c - 'A' + 10);
+		} else {
+			return -EBADMSG;
+		}
+		*cp = (*cp << 4) | d;
+	}
+	return 0;
+}
+
+/* Decode the JSON string *p points at (opening quote) into out, NUL-terminated when
+ * size > 0. *len receives the full decoded length. Advances *p past the closing quote. */
+static int json_string(const char **p, char *out, size_t size, size_t *len) {
+	size_t n = 0U;
+	const char *s = *p;
+
+	if (*s != '"') {
+		return -EBADMSG;
+	}
+	s++;
+
+	while (*s != '"') {
+		if (*s == '\0' || (unsigned char)*s < 0x20U) {
+			return -EBADMSG;
+		}
+		if (*s != '\\') {
+			json_put(out, size, &n, *s++);
+			continue;
+		}
+		s++;
+		switch (*s) {
+			case '"':  json_put(out, size, &n, '"');  break;
+			case '\\': json_put(out, size, &n, '\\'); break;
+			case '/':  json_put(out, size, &n, '/');  break;
+			case 'b':  json_put(out, size, &n, '\b'); break;
+			case 'f':  json_put(out, size, &n, '\f'); break;
+			case 'n':  json_put(out, size, &n, '\n'); break;
+			case 'r':  json_put(out, size, &n, '\r'); break;
+			case 't':  json_put(out, size, &n, '\t'); break;
+			case 'u': {
+				uint32_t cp;
+				if (json_hex4(s + 1, &cp) != 0) {
+					return -EBADMSG;
+				}
+				s += 4;
+				/* A high surrogate followed by an escaped low surrogate is one code point. */
+				if (cp >= 0xD800U && cp <= 0xDBFFU && s[1] == '\\' && s[2] == 'u') {
+					uint32_t lo;
+					if (json_hex4(s + 3, &lo) == 0 && lo >= 0xDC00U && lo <= 0xDFFFU) {
+						cp = 0x10000U + ((cp - 0xD800U) << 10) + (lo - 0xDC00U);
+						s += 6;
+					}
+				}
+				json_put_utf8(out, size, &n, cp);
+				break;
+			}
+			default:
+				return -EBADMSG;
+		}
+		s++;
+	}
+
+	if (out != NULL && size > 0U) {
+		out[(n < size) ? n : size - 1U] = '\0';
+	}
+	*len = n;
+	*p   = s + 1;
+	return 0;
+}
+
+/* Copy a bare scalar (number, true, false, null) verbatim. The Web UI always writes
+ * strings, but a hand-edited file may hold plain numbers. Objects and arrays are not
+ * part of the format. */
+static int json_scalar(const char **p, char *out, size_t size, size_t *len) {
+	size_t n = 0U;
+	const char *s = *p;
+
+	if (*s == '{' || *s == '[') {
+		return -EBADMSG;
+	}
+	while (*s != '\0' && *s != ',' && *s != '}' && *s != ' ' && *s != '\t' &&
+		   *s != '\n' && *s != '\r') {
+		json_put(out, size, &n, *s++);
+	}
+	if (n == 0U) {
+		return -EBADMSG;
+	}
+	if (out != NULL && size > 0U) {
+		out[(n < size) ? n : size - 1U] = '\0';
+	}
+	*len = n;
+	*p   = s;
+	return 0;
+}
+
+/* Look up key in the flat object text. On a hit the value is decoded into value/size
+ * and *len gets its full length. On -ENOENT, *close points at the closing brace. */
+static int json_find(const char *text, const char *key, char *value, size_t size,
+					 size_t *len, const char **close) {
+	const char *p = text;
+	size_t key_len = strlen(key);
+
+	json_skip_ws(&p);
+	if (*p != '{') {
+		return -EBADMSG;
+	}
+	p++;
+	json_skip_ws(&p);
+
+	while (*p != '}') {
+		char   name[GO_CONFIG_KEY_MAX];
+		size_t name_len;
+
+		if (json_string(&p, name, sizeof(name), &name_len) != 0) {
+			return -EBADMSG;
+		}
+		json_skip_ws(&p);
+		if (*p != ':') {
+			return -EBADMSG;
+		}
+		p++;
+		json_skip_ws(&p);
+
+		int match = (name_len == key_len) && (name_len < sizeof(name)) &&
+					(memcmp(name, key, key_len) == 0);
+		int res = (*p == '"') ? json_string(&p, match ? value : NULL, size, len)
+							  : json_scalar(&p, match ? value : NULL, size, len);
+		if (res != 0) {
+			return res;
+		}
+		if (match) {
+			return 0;
+		}
+
+		json_skip_ws(&p);
+		if (*p == ',') {
+			p++;
+			json_skip_ws(&p);
+		} else if (*p != '}') {
+			return -EBADMSG;
+		}
+	}
+
+	if (close != NULL) {
+		*close = p;
+	}
+	return -ENOENT;
+}
+
+/****************************************************************************************/
+
+int GO_config_read_string(const char *key, char *value, size_t size) {
+	char  *text;
+	size_t len = 0U;
+
+	if (value != NULL && size > 0U) {
+		value[0] = '\0';
+	}
+	if (key == NULL || value == NULL || size == 0U) {
+		return -EINVAL;
+	}
+
+	int res = config_load(&text);
+	if (res != 0) {
+		return res;
+	}
+	res = json_find(text, key, value, size, &len, NULL);
+	free(text);
+
+	if (res == 0 && len >= size) {
+		return -ENOSPC;
+	}
+	return res;
+}
+
+/****************************************************************************************/
+
+int GO_config_read_number(const char *key, float *value) {
+	char buf[64];
+
+	int res = GO_config_read_string(key, buf, sizeof(buf));
+	if (res == -ENOSPC) {
+		return -EINVAL;
+	}
+	if (res != 0) {
+		return res;
+	}
+
+	char *end;
+	errno = 0;
+	float v = strtof(buf, &end);
+	if (end == buf || errno == ERANGE) {
+		return -EINVAL;
+	}
+	while (*end == ' ' || *end == '\t') {
+		end++;
+	}
+	if (*end != '\0') {
+		return -EINVAL;
+	}
+
+	*value = v;
+	return 0;
+}
+
+/****************************************************************************************/
+
+/* Write a JSON string literal (with quotes) for s. */
+static void json_write_string(FILE *f, const char *s) {
+	fputc('"', f);
+	for (; *s != '\0'; s++) {
+		unsigned char c = (unsigned char)*s;
+		switch (c) {
+			case '"':  fputs("\\\"", f); break;
+			case '\\': fputs("\\\\", f); break;
+			case '\n': fputs("\\n", f);  break;
+			case '\r': fputs("\\r", f);  break;
+			case '\t': fputs("\\t", f);  break;
+			default:
+				if (c < 0x20U) {
+					fprintf(f, "\\u%04x", c);
+				} else {
+					fputc((int)c, f);
+				}
+				break;
+		}
+	}
+	fputc('"', f);
+}
+
+/* Create the parent directory of the configuration file if it is missing. */
+static void config_make_dir(void) {
+	char dir[256];
+	const char *path = config_path();
+	const char *slash = strrchr(path, '/');
+
+	if (slash == NULL || slash == path || (size_t)(slash - path) >= sizeof(dir)) {
+		return;
+	}
+	memcpy(dir, path, (size_t)(slash - path));
+	dir[slash - path] = '\0';
+	mkdir(dir, 0755);
+}
+
+int GO_config_ensure(const char *key, const char *default_value) {
+	char	   *text = NULL;
+	const char *close = NULL;
+	size_t	    len;
+
+	if (key == NULL || key[0] == '\0' || default_value == NULL) {
+		return -EINVAL;
+	}
+
+	int res = config_load(&text);
+	if (res == 0) {
+		res = json_find(text, key, NULL, 0U, &len, &close);
+		if (res == 0) {
+			free(text);
+			return 0; /* already present: never touch an existing value */
+		}
+		if (res != -ENOENT) {
+			free(text);
+			return res; /* do not rewrite a file we cannot parse */
+		}
+	} else if (res == -ENOENT) {
+		config_make_dir();
+	} else {
+		return res;
+	}
+
+	/* Keep the existing members byte for byte; append the new one before '}'. Same
+	 * layout as the Web UI writes (json.dumps, indent 4). */
+	char tmp_path[300];
+	if (snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", config_path()) >=
+		(int)sizeof(tmp_path)) {
+		free(text);
+		return -ENAMETOOLONG;
+	}
+
+	FILE *f = fopen(tmp_path, "wb");
+	if (f == NULL) {
+		free(text);
+		return -EIO;
+	}
+
+	int has_members = 0;
+	if (text != NULL) {
+		/* Everything up to the last non-blank character before the closing brace. */
+		const char *last = close;
+		while (last > text && (last[-1] == ' ' || last[-1] == '\t' ||
+							   last[-1] == '\n' || last[-1] == '\r')) {
+			last--;
+		}
+		has_members = (last > text) && (last[-1] != '{');
+		fwrite(text, 1U, (size_t)(last - text), f);
+	} else {
+		fputc('{', f);
+	}
+
+	fputs(has_members ? ",\n    " : "\n    ", f);
+	json_write_string(f, key);
+	fputs(": ", f);
+	json_write_string(f, default_value);
+	fputs("\n}\n", f);
+	free(text);
+
+	int write_error = ferror(f);
+	if (fflush(f) != 0 || fsync(fileno(f)) != 0) {
+		write_error = 1;
+	}
+	if (fclose(f) != 0) {
+		write_error = 1;
+	}
+	if (write_error || rename(tmp_path, config_path()) != 0) {
+		unlink(tmp_path);
+		return -EIO;
+	}
+	return 1;
+}
+
+/****************************************************************************************/
+
+int GO_config_changed(void) {
+	static int	 s_seen = 0;
+	static struct stat s_last;
+	struct stat	 st;
+
+	if (stat(config_path(), &st) != 0) {
+		s_seen = 0;
+		return -ENOENT;
+	}
+
+	/* The Web UI replaces the file (new inode); an editor may rewrite it in place. */
+	int changed = !s_seen || st.st_ino != s_last.st_ino || st.st_dev != s_last.st_dev ||
+				  st.st_size != s_last.st_size || st.st_mtime != s_last.st_mtime;
+
+	s_last = st;
+	s_seen = 1;
+	return changed;
 }
 
 /****************************************************************************************
