@@ -29,14 +29,21 @@ static uint16_t s_keep_alive         = 60u;
 
 static GO_MqttSubData_t *s_subs[MQTT_MAX_SUBSCRIPTIONS];
 static uint8_t           s_sub_count = 0u;
+/* QoS per registered subscription, as last passed to GO_communication_mqtt_subscribe().
+ * Kept beside s_subs[] instead of in GO_MqttSubData_t: on the S1 that struct is cast
+ * 1-to-1 to the ESP driver's struct, so it cannot grow a field. */
+static uint8_t           s_sub_qos[MQTT_MAX_SUBSCRIPTIONS];
 
 static void on_connect(struct mosquitto *mosq, void *obj, int rc)
 {
     (void)obj;
     if (rc == 0) {
         GO_communication_mqtt_on_status(GO_MQTT_STATUS_CONNECTED);
+        /* (Re)subscribe everything on every connect: a clean session forgets the
+         * subscriptions, and subscribe() calls made before enable() had no
+         * connection to go to. Use the QoS each one was requested with. */
         for (uint8_t i = 0u; i < s_sub_count; i++) {
-            mosquitto_subscribe(mosq, NULL, s_subs[i]->topic, 0);
+            mosquitto_subscribe(mosq, NULL, s_subs[i]->topic, (int)s_sub_qos[i]);
         }
     } else {
         GO_communication_mqtt_on_status(GO_MQTT_STATUS_DISCONNECTED);
@@ -111,13 +118,24 @@ void GO_communication_mqtt_publish(const char *topic, const uint8_t *payload,
 
 void GO_communication_mqtt_subscribe(const char *topic, uint8_t qos)
 {
+    /* Remember the QoS for the registered subscription on this topic, so the
+     * resubscribe in on_connect() uses it too — also when this call comes before
+     * enable(), as the documented setup order prescribes. */
+    for (uint8_t i = 0u; i < s_sub_count; i++) {
+        if (topic != NULL && strcmp(s_subs[i]->topic, topic) == 0) {
+            s_sub_qos[i] = (qos > 2u) ? 2u : qos;
+        }
+    }
     if (!s_mosq) { return; }
     mosquitto_subscribe(s_mosq, NULL, topic, (int)qos);
 }
 
 void GO_communication_mqtt_sub_register(GO_MqttSubData_t *sub)
 {
-    if (s_sub_count < MQTT_MAX_SUBSCRIPTIONS) { s_subs[s_sub_count++] = sub; }
+    if (s_sub_count < MQTT_MAX_SUBSCRIPTIONS) {
+        s_sub_qos[s_sub_count] = 0u;
+        s_subs[s_sub_count++]  = sub;
+    }
 }
 
 void GO_communication_mqtt_unsubscribe(const char *topic)

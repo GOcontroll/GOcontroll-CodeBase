@@ -121,6 +121,9 @@ void GO_communication_mqtt_publish(const char *topic, const uint8_t *payload,
 /**************************************************************************************
  * \brief  Subscribe to a topic. A matching GO_MqttSubData_t must be registered first
  *         via GO_communication_mqtt_sub_register() for data to be delivered.
+ *         Linux: the QoS is remembered for that registration and reused when the
+ *         client (re)connects, so it also applies when this is called before
+ *         GO_communication_mqtt_enable(true) and after a broker reconnect.
  *
  * \param  topic  Null-terminated topic string (wildcards + and # are supported).
  * \param  qos    QoS level: 0, 1 or 2.
