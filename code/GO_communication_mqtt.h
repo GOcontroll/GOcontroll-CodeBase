@@ -82,6 +82,10 @@ typedef struct
  * \brief  Store broker connection parameters. Must be called before
  *         GO_communication_mqtt_enable(true).
  *
+ * \note   S1: these values go to the ESP (GO_communication_esp_set_mqtt_config), and a
+ *         customer broker stored in the ESP during provisioning or with the Service Tool
+ *         prevails over them — see the note there.
+ *
  * \param  url         Broker hostname or IP address (null-terminated).
  * \param  port        Broker port (typically 1883, or 8883 for TLS).
  * \param  user        Username string, or NULL / "" for anonymous access.

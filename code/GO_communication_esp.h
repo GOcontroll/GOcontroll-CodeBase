@@ -276,6 +276,11 @@ void GO_communication_esp_on_time_sync(uint16_t year, uint8_t month, uint8_t day
 
 /**************************************************************************************
 ** \brief     Send modem APN and optional SIM PIN to the ESP.
+**
+**            NOTE — an APN stored in the ESP prevails (ESP firmware 2.0.0 and later,
+**            S1-kennisbank servicemodus-en-updates.md §19.4): when the controller was given
+**            an APN during provisioning or with the Service Tool, the modem uses that one and
+**            the apn sent here is ignored. The SIM PIN sent here still goes first.
 ** \param     apn      Null-terminated APN string.
 ** \param     sim_pin  Null-terminated SIM PIN string, or NULL / "" to let the ESP use the PIN
 **                     set during commissioning (default 0000). The ESP enters it only when the
@@ -293,11 +298,19 @@ void GO_communication_esp_enable_lte(bool enable);
 
 /**************************************************************************************
 ** \brief     Send MQTT broker settings to the ESP; a running session restarts with them.
-**            Every part left empty is taken from the defaults set on the ESP during
-**            commissioning, so an application binary never has to carry credentials;
-**            a part supplied here takes precedence (S1-kennisbank mqtt.md §2.1). Not
-**            calling this at all is allowed: GO_communication_esp_enable_mqtt(true) then
-**            connects with the defaults.
+**
+**            NOTE — the settings stored in the ESP prevail (ESP firmware 2.0.0 and later,
+**            S1-kennisbank servicemodus-en-updates.md §19.4). When the controller was given
+**            a customer broker during provisioning or with the Service Tool, the ESP uses
+**            that broker with its port and credentials and IGNORES url, port, user and pass
+**            sent here. Only when the ESP holds no broker are the values sent here used, as
+**            one set. So an application that implements customer MQTT works out of the box
+**            on a controller without stored settings, and a provisioned installation always
+**            reaches the broker it was provisioned for. client_id is always taken from here
+**            ("" = the controller serial). Not calling this at all is allowed:
+**            GO_communication_esp_enable_mqtt(true) then connects with the stored settings.
+**            (An ESP before 2.0.0 merges per part instead, with the values sent here first:
+**            S1-kennisbank mqtt.md §2.1.)
 ** \param     url         Null-terminated broker host or URL ("mqtt://", "mqtts://"); "" = default.
 ** \param     port        Broker port number; 0 = default.
 ** \param     user        Null-terminated username; "" = default username and password.

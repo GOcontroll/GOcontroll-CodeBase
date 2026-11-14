@@ -51,10 +51,10 @@ struct fdcan_timing {
 };
 
 static const struct fdcan_timing timing_table[4] = {
-	{2,  15, 32},   /* CAN125KBPS: 12 MHz / (8 * 12) = 125 kbps, SP=75% */
-	{1,  15, 32},   /* CAN250KBPS: 12 MHz / (4 * 12) = 250 kbps, SP=75% */
-	{1,  10, 13},   /* CAN500KBPS: 12 MHz / (2 * 12) = 500 kbps, SP=75% */
-	{1,  5, 6},   /* CAN1MBPS:   12 MHz / (1 * 12) = 1 Mbps,   SP=75% */
+	{8,  8, 3},     /* CAN125KBPS: 12 MHz / (8 * 12) = 125 kbps, SP=75% */
+	{4,  8, 3},     /* CAN250KBPS: 12 MHz / (4 * 12) = 250 kbps, SP=75% */
+	{2,  8, 3},     /* CAN500KBPS: 12 MHz / (2 * 12) = 500 kbps, SP=75% */
+	{1,  8, 3},     /* CAN1MBPS:   12 MHz / (1 * 12) = 1 Mbps,   SP=75% */
 };
 
 /**************************************************************************************
