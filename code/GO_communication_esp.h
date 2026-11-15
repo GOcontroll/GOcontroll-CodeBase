@@ -299,17 +299,14 @@ void GO_communication_esp_enable_lte(bool enable);
 /**************************************************************************************
 ** \brief     Send MQTT broker settings to the ESP; a running session restarts with them.
 **
-**            NOTE — the settings stored in the ESP prevail (ESP firmware 2.0.0 and later,
-**            S1-kennisbank servicemodus-en-updates.md §19.4). When the controller was given
-**            a customer broker during provisioning or with the Service Tool, the ESP uses
-**            that broker with its port and credentials and IGNORES url, port, user and pass
-**            sent here. Only when the ESP holds no broker are the values sent here used, as
-**            one set. So an application that implements customer MQTT works out of the box
-**            on a controller without stored settings, and a provisioned installation always
-**            reaches the broker it was provisioned for. client_id is always taken from here
-**            ("" = the controller serial). Not calling this at all is allowed:
-**            GO_communication_esp_enable_mqtt(true) then connects with the stored settings.
-**            (An ESP before 2.0.0 merges per part instead, with the values sent here first:
+**            NOTE — the settings sent here prevail. When url names a broker, the ESP uses
+**            url, port, user and pass from here as one set, whatever customer broker was
+**            stored in the ESP during provisioning or with the Service Tool. Only when url is
+**            "" does the ESP use its stored set (S1-kennisbank servicemodus-en-updates.md
+**            §19.4, ESP firmware 2.0.0 and later). The two are never mixed. client_id is
+**            always taken from here ("" = the controller serial). Not calling this at all is
+**            allowed: GO_communication_esp_enable_mqtt(true) then connects with the stored
+**            settings. (An ESP before 2.0.0 merges per part, with the values sent here first:
 **            S1-kennisbank mqtt.md §2.1.)
 ** \param     url         Null-terminated broker host or URL ("mqtt://", "mqtts://"); "" = default.
 ** \param     port        Broker port number; 0 = default.
