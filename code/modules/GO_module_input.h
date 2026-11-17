@@ -138,7 +138,11 @@ int GO_module_input_receive_values(_inputModule* inputModule);
 ** \brief     Sends a new pulse counter value to a specified channel of the input module.
 ** \param     inputModule  Pointer to a _inputModule struct that holds the
 **                         relevant module configuration.
-** \param     channel      The channel index on which the counter needs to be set.
+** \param     channel      The 0-based channel index (INPUTCHANNELx) on which the
+**                         counter needs to be set. The module numbers channels
+**                         from 1 on the wire; this function converts.
+**                         Channel 6 of the 6 channel module cannot be set
+**                         (firmware limit) and returns -EINVAL.
 ** \param     value        The new value to write to the pulse counter.
 ** \param     trigger      Change on this input will trigger a send to the module.
 ** \return    0 if successful, negative errno value if failed.

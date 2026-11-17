@@ -203,9 +203,20 @@ int GO_module_input_reset_puls_counter(_inputModule* inputModule, uint8_t channe
 	} else if (inputModule->moduleType == INPUTMODULE10CHANNEL && channel > 9) {
 		return -EINVAL;
 	}
+	// The 6 channel firmware only accepts wire channels 1-5 in this message
+	// (value[ch - 1] guarded by ch < 6), so the counter on channel 6 cannot be
+	// set. Fail loudly instead of sending a message the module ignores.
+	if (inputModule->moduleType == INPUTMODULE6CHANNEL && channel == 5) {
+		err("pulse counter on channel 6 of the input module in slot %d cannot "
+			"be reset, the module firmware only accepts channels 1-5.\n",
+			inputModule->moduleSlot + 1);
+		return -EINVAL;
+	}
 
 	if (inputModule->pulscounterResetTrigger[channel] != trigger) {
-		inputModuleDataTx[6] = channel;
+		// The module numbers channels from 1 in this message (the firmware
+		// writes value[ch - 1]); the API takes the 0-based INPUTCHANNELx index.
+		inputModuleDataTx[6] = channel + 1;
 		*(int32_t*)&inputModuleDataTx[7] = value;
 
 		if (inputModule->moduleType == INPUTMODULE6CHANNEL) {
