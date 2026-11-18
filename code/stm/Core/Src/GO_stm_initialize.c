@@ -98,6 +98,12 @@ void GO_stm_initialize(void)
 	MX_FDCAN1_Init();
 	MX_FDCAN2_Init();
 	HAL_PWR_EnableBkUpAccess();
+	/* The backup supply of the RTC is a supercapacitor on VBAT (C44, 22 mF) with no
+	 * charging path on the board: it is charged through the internal resistor of the
+	 * MCU. Without this the capacitor stays nearly empty, which keeps the backup
+	 * registers but stops the 32.768 kHz crystal as soon as the supply is gone. The
+	 * 1.5 kOhm resistor fits the charge time of 90 s in the schematic. */
+	HAL_PWREx_EnableBatteryCharging(PWR_BATTERY_CHARGING_RESISTOR_1_5);
 	/* Always: it enables the RTC clocks and fills hrtc, and only sets the default time
 	 * and date when the backup domain has lost them (see Check_RTC_BKUP in rtc.c). */
 	MX_RTC_Init();
