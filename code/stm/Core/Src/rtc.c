@@ -21,7 +21,9 @@
 #include "rtc.h"
 
 /* USER CODE BEGIN 0 */
-
+/* Written to TAMP backup register 0 once the calendar has been set; lost together with
+ * the calendar when the backup domain loses its supply. */
+#define RTC_CALENDAR_SET_MARKER 0xBEEFU
 /* USER CODE END 0 */
 
 RTC_HandleTypeDef hrtc;
@@ -68,7 +70,14 @@ void MX_RTC_Init(void)
   }
 
   /* USER CODE BEGIN Check_RTC_BKUP */
-
+  /* The calendar survives a reset as long as the backup domain keeps its supply: only
+   * set the default time and date when the marker is gone. Read the marker here, not
+   * before MX_RTC_Init(): the RTC/TAMP APB clock is off after every reset, and until
+   * HAL_RTC_MspInit() has enabled it the backup registers read as 0. */
+  if (READ_REG(TAMP->BKP0R) == RTC_CALENDAR_SET_MARKER)
+  {
+    return;
+  }
   /* USER CODE END Check_RTC_BKUP */
 
   /** Initialize RTC and set the Time and Date
@@ -92,7 +101,7 @@ void MX_RTC_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN RTC_Init 2 */
-
+  WRITE_REG(TAMP->BKP0R, RTC_CALENDAR_SET_MARKER);
   /* USER CODE END RTC_Init 2 */
 
 }

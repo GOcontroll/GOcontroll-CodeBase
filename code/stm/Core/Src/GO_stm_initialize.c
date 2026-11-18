@@ -98,10 +98,9 @@ void GO_stm_initialize(void)
 	MX_FDCAN1_Init();
 	MX_FDCAN2_Init();
 	HAL_PWR_EnableBkUpAccess();
-	if (READ_REG(TAMP->BKP0R) != 0xBEEFU) {
-		MX_RTC_Init();
-		WRITE_REG(TAMP->BKP0R, 0xBEEFU);
-	}
+	/* Always: it enables the RTC clocks and fills hrtc, and only sets the default time
+	 * and date when the backup domain has lost them (see Check_RTC_BKUP in rtc.c). */
+	MX_RTC_Init();
 
 	SEGGER_RTT_Init();
 	GO_communication_esp_init(&huart2);
