@@ -141,6 +141,35 @@ static int readAdc(uint8_t index, uint16_t* value) {
 	return 0;
 }
 
+/* GO_BOARD_ENABLE_CPU_TEMPERATURE — OFF by default. Do not switch on without
+ * re-testing on the target first.
+ *
+ * Measured on a Moduline S1 (STM32H573RI) on 2026-09-09: reading the factory
+ * calibration block raises a PRECISE BUS FAULT on the core, which escalates to
+ * HardFault. HardFault_Handler is a bare while(1) (stm32h5xx_it.c), so the
+ * device goes completely silent — no LED, no CAN, no RTT — within milliseconds
+ * of osKernelStart().
+ *
+ *   faulting instruction : ldrh r3, [r1, #24]   (readCpuTemperature, this file)
+ *   BFAR                 : 0x08FFF818 = TEMPSENSOR_CAL2_ADDR
+ *   CFSR                 : 0x00008200 (BFSR PRECISERR + BFARVALID)
+ *   HFSR                 : 0x40000000 (FORCED)
+ *
+ * Ruled out by measurement: MPU/SAU (MMFSR = 0), flash ECC (ECCCORR/ECCDETR/
+ * ECCDR all 0), flash error flags (NSSR/OPSR = 0), product state (OPEN, 0xED)
+ * and ICACHE (disabled). The same addresses read back fine over the debug port,
+ * so the data is present — the core is refused the access for a reason we have
+ * not identified yet.
+ *
+ * Until that is understood this must stay off: adcThreadFunc() runs on every
+ * board that starts the ADC thread, so an enabled call bricks the controller.
+ */
+#ifndef GO_BOARD_ENABLE_CPU_TEMPERATURE
+#define GO_BOARD_ENABLE_CPU_TEMPERATURE 0
+#endif
+
+#if GO_BOARD_ENABLE_CPU_TEMPERATURE
+
 /**************************************************************************************
 ** \brief     Sample the internal temperature sensor and cache the result.
 **            Converted with the factory calibration values (TS_CAL1 at 30 °C,
@@ -190,6 +219,8 @@ static void readCpuTemperature(void) {
 	s_cpuTemperatureValid = 1u;
 }
 
+#endif /* GO_BOARD_ENABLE_CPU_TEMPERATURE */
+
 static void adcThreadFunc(void* arg) {
 	(void)arg;
 	uint32_t tick = osKernelGetTickCount();
@@ -198,7 +229,9 @@ static void adcThreadFunc(void* arg) {
 		tick += s_adcThreadArgs.sample_time;
 		readAdc(1, &s_controllerSupply.batteryVoltage);
 		readAdc(0, &s_controllerSupply.k15aVoltage);
+#if GO_BOARD_ENABLE_CPU_TEMPERATURE
 		readCpuTemperature();
+#endif
 		osDelayUntil(tick);
 	}
 	osThreadExit();
@@ -211,7 +244,12 @@ static void adcThreadFunc(void* arg) {
 **            precondition as the supply voltages, because both share hadc1.
 **            Declared with the other ControllerInfo getters in GO_board.h; it lives
 **            here because the ADC thread owns the sampling.
-** \return    Temperature in degrees Celsius, or 0 if not yet available.
+**
+**            Returns 0 unless GO_BOARD_ENABLE_CPU_TEMPERATURE is set — the
+**            sampling is disabled by default because reading the factory
+**            calibration block hard-faults the core on the S1. See the note
+**            above readCpuTemperature() in this file before switching it on.
+** \return    Temperature in degrees Celsius, or 0 if not available.
 ***************************************************************************************/
 float GO_board_controller_info_get_cpu_temperature(void) {
 	if (!s_cpuTemperatureValid) {
