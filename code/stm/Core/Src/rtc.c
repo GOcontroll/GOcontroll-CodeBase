@@ -24,6 +24,9 @@
 /* Written to TAMP backup register 0 once the calendar has been set; lost together with
  * the calendar when the backup domain loses its supply. */
 #define RTC_CALENDAR_SET_MARKER 0xBEEFU
+/* Written to TAMP backup register 1 when the LSE crystal did not start and the RTC
+ * runs on the LSI instead. */
+#define RTC_LSE_FAILED_MARKER   0x0BADU
 /* USER CODE END 0 */
 
 RTC_HandleTypeDef hrtc;
@@ -114,13 +117,35 @@ void HAL_RTC_MspInit(RTC_HandleTypeDef* rtcHandle)
   if(rtcHandle->Instance==RTC)
   {
   /* USER CODE BEGIN RTC_MspInit 0 */
+    /* The RTC runs on the 32.768 kHz crystal (LSE), the only clock that keeps running
+     * on the backup supply while the controller is off; on the LSI the calendar stood
+     * still for as long as the power was gone. The LSI is the fallback when the crystal
+     * does not start. That attempt costs LSE_STARTUP_TIMEOUT, so the failure is
+     * remembered in the backup domain and not repeated at every boot. */
+    RCC_OscInitTypeDef OscInitStruct = {0};
+    uint32_t rtcClockSource = RCC_RTCCLKSOURCE_LSE;
 
+    __HAL_RCC_RTCAPB_CLK_ENABLE(); /* needed to read the TAMP backup registers */
+
+    OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSE;
+    OscInitStruct.LSEState       = RCC_LSE_ON;
+    OscInitStruct.PLL.PLLState   = RCC_PLL_NONE;
+    if ((READ_REG(TAMP->BKP1R) == RTC_LSE_FAILED_MARKER) ||
+        (HAL_RCC_OscConfig(&OscInitStruct) != HAL_OK))
+    {
+      rtcClockSource = RCC_RTCCLKSOURCE_LSI;
+      /* Off, or HAL_RCCEx_PeriphCLKConfig() waits for it again after a backup reset */
+      CLEAR_BIT(RCC->BDCR, RCC_BDCR_LSEON);
+    }
   /* USER CODE END RTC_MspInit 0 */
 
   /** Initializes the peripherals clock
   */
+    /* Changing the source (a controller that still ran on the LSI) resets the backup
+     * domain once: the calendar marker goes with it and MX_RTC_Init() sets the default
+     * time and date again. */
     PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC;
-    PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
+    PeriphClkInitStruct.RTCClockSelection = rtcClockSource;
     if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
     {
       Error_Handler();
@@ -129,6 +154,11 @@ void HAL_RTC_MspInit(RTC_HandleTypeDef* rtcHandle)
     /* RTC clock enable */
     __HAL_RCC_RTC_ENABLE();
     __HAL_RCC_RTCAPB_CLK_ENABLE();
+
+    if (rtcClockSource == RCC_RTCCLKSOURCE_LSI)
+    {
+      WRITE_REG(TAMP->BKP1R, RTC_LSE_FAILED_MARKER);
+    }
 
     __HAL_RCC_GPIOC_CLK_ENABLE();
     /**RTC GPIO Configuration
