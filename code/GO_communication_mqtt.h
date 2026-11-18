@@ -26,16 +26,26 @@
  *           GO_communication_mqtt_subscribe("/cmd/output", 1);
  *           GO_communication_mqtt_enable(true);
  *
- *           // 3. In the application loop — publish and check incoming
+ *           // 3. In the application loop — publish and handle EVERY incoming message
  *           GO_communication_mqtt_publish("/sensor/ch1", data, len, 1, 0);
- *           if (sub.new_flag) {
- *               sub.new_flag = 0;
+ *           GO_communication_mqtt_poll();
+ *           while (sub.new_flag) {
  *               // process sub.payload[0..sub.length-1]
+ *               sub.new_flag = 0;
+ *               GO_communication_mqtt_poll();   // next queued message, if any
  *           }
  *
- * \note   On Linux the MQTT network loop runs in a background thread started by
- *         GO_communication_mqtt_enable(true). No polling is needed; the driver
- *         writes directly to the registered GO_MqttSubData_t buffers.
+ * \note   Receive queue. Once GO_communication_mqtt_poll() has been called, every
+ *         message is queued per subscription (GO_MQTT_RX_QUEUE_DEPTH, default 8) and
+ *         poll() — in the caller's thread — moves the next one into the buffer when
+ *         new_flag is 0. Nothing is lost while the application is busy, and the
+ *         buffer is never written from another thread. When a queue is full the
+ *         OLDEST message is dropped and counted (GO_communication_mqtt_dropped()).
+ *         Without poll() the old behaviour applies: the driver writes the buffer
+ *         directly and the last message wins.
+ * \note   Linux: the network loop runs in a background thread started by
+ *         GO_communication_mqtt_enable(true). S1: messages arrive from the UART
+ *         interrupt of the ESP driver.
  **************************************************************************************/
 
 #ifndef GO_COMMUNICATION_MQTT_H
@@ -139,9 +149,10 @@ void GO_communication_mqtt_subscribe(const char *topic, uint8_t qos);
  *         GO_communication_mqtt_subscribe(). The pointer must remain valid for the
  *         lifetime of the program.
  *
- *         When a message arrives on sub->topic the driver writes up to
- *         sub->payload_size bytes into sub->payload, sets sub->length and
- *         sets sub->new_flag to 1.
+ *         When a message arrives on sub->topic (wildcards + and # match), up to
+ *         sub->payload_size bytes end up in sub->payload, sub->length is set and
+ *         sub->new_flag becomes 1 — directly, or via GO_communication_mqtt_poll()
+ *         once that is in use.
  *
  * \param  sub  Pointer to a statically allocated GO_MqttSubData_t.
  **************************************************************************************/
@@ -153,6 +164,22 @@ void GO_communication_mqtt_sub_register(GO_MqttSubData_t *sub);
  * \param  topic  Null-terminated topic string.
  **************************************************************************************/
 void GO_communication_mqtt_unsubscribe(const char *topic);
+
+/**************************************************************************************
+ * \brief  Move the next queued message of each subscription into its buffer.
+ *         For every registered subscription whose new_flag is 0 and whose queue is
+ *         not empty: copy the oldest message into payload/length and set new_flag.
+ *         Call it once per application cycle, and again after clearing new_flag to
+ *         get the next message (see the usage example at the top of this file).
+ *         The first call switches the driver to queued delivery.
+ **************************************************************************************/
+void GO_communication_mqtt_poll(void);
+
+/**************************************************************************************
+ * \brief  Number of messages dropped for this subscription because its queue was
+ *         full (the oldest one goes). 0 for an unknown subscription.
+ **************************************************************************************/
+uint32_t GO_communication_mqtt_dropped(const GO_MqttSubData_t *sub);
 
 /*==============================================================================================
 ** Weak callback — override in application code to react to connection state changes.

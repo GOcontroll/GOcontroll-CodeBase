@@ -385,6 +385,17 @@ void GO_communication_esp_mqtt_unsubscribe(const char *topic);
 void GO_communication_esp_on_mqtt_status(uint8_t status);
 
 /**************************************************************************************
+** \brief     Called from the UART interrupt for every received MQTT message, before
+**            the driver writes the registered subscription buffers. Return true to
+**            take the message — the driver then writes nothing. The default returns
+**            false; GO_communication_mqtt.c overrides it to queue messages once the
+**            application calls GO_communication_mqtt_poll(). Runs in interrupt
+**            context: keep it short and do not block.
+** \return    true when the message was taken.
+***************************************************************************************/
+bool GO_communication_esp_on_mqtt_message(const char *topic, const uint8_t *payload, uint16_t len);
+
+/**************************************************************************************
 ** \brief     Called when the ESP sends a GPS fix. gps is valid only for the
 **            duration of the callback.
 ** \param     gps  Pointer to the GPS data struct.

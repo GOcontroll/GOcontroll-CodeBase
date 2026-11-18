@@ -724,6 +724,21 @@ __attribute__((weak)) void GO_communication_esp_on_mqtt_status(uint8_t status)
 }
 
 /**************************************************************************************
+** \brief     Called from the UART interrupt for every received MQTT message, before
+**            the driver writes it into the registered subscription buffers.
+**            Return true to take the message (the driver then writes nothing);
+**            GO_communication_mqtt.c does so to queue it. Default: false.
+** \return    true when the message was taken.
+***************************************************************************************/
+__attribute__((weak)) bool GO_communication_esp_on_mqtt_message(const char *topic,
+                                                                 const uint8_t *payload,
+                                                                 uint16_t len)
+{
+    (void)topic; (void)payload; (void)len;
+    return false;
+}
+
+/**************************************************************************************
 ** \brief     Internal static handler dispatched when an MQTT_RECEIVED frame arrives.
 **            Matches the topic against registered subscriptions and fills their buffers.
 ** \param     topic    Null-terminated topic string from the received frame.
@@ -735,6 +750,10 @@ static void EspInterface_OnMqttReceived(const char *topic,
                                         const uint8_t *payload, uint16_t len)
 {
     uint8_t i;
+    /* GO_communication_mqtt.c takes the message into its receive queue once the
+     * application uses GO_communication_mqtt_poll(); otherwise (and for code that
+     * uses this driver directly) the buffer is written as before. */
+    if (GO_communication_esp_on_mqtt_message(topic, payload, len)) { return; }
     for (i = 0u; i < s_mqtt_nsubs; i++)
     {
         if (strncmp(s_mqtt_subs[i]->topic, topic, 64u) == 0)

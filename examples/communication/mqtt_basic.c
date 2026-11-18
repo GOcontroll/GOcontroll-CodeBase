@@ -153,16 +153,19 @@ int main(void)
             info("TX  %s  →  %ldmV\n", TOPIC_PUBLISH, (long)mv);
         }
 
-        /* Check for incoming command */
-        if (cmd_sub.new_flag) {
-            cmd_sub.new_flag = 0u;
-
+        /* Handle EVERY incoming command: poll() moves the next queued message into
+         * the buffer, so nothing is lost while this loop was busy. */
+        GO_communication_mqtt_poll();
+        while (cmd_sub.new_flag) {
             /* Null-terminate for safe printing (payload buffer is larger) */
             uint16_t len = cmd_sub.length < sizeof(rx_buf) - 1u
                          ? cmd_sub.length : (uint16_t)(sizeof(rx_buf) - 1u);
             rx_buf[len] = '\0';
 
             info("RX  %s  →  \"%s\"\n", TOPIC_SUBSCRIBE, (char *)rx_buf);
+
+            cmd_sub.new_flag = 0u;
+            GO_communication_mqtt_poll();
         }
 
         usleep(10000); /* 10 ms */
