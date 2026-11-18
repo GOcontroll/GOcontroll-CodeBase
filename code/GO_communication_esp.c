@@ -71,10 +71,68 @@ static uint16_t Crc16(const uint8_t *data, size_t len)
 static UART_HandleTypeDef *s_huart   = NULL;
 static volatile uint8_t    s_tx_busy = 0u;
 
+/* Frame on the wire. */
+static uint8_t s_tx_buf[ESPIF_FRAME_OVERHEAD + ESPIF_MAX_PAYLOAD_LEN];
+
+/* Frames waiting for the UART, each stored as [len_lo][len_hi][frame bytes].
+ * See the TX block comment below. */
+#ifndef ESPIF_TX_QUEUE_BYTES
+#define ESPIF_TX_QUEUE_BYTES 2048u
+#endif
+static uint8_t           s_txq[ESPIF_TX_QUEUE_BYTES];
+static uint16_t          s_txq_head    = 0u;   /* oldest byte */
+static uint16_t          s_txq_used    = 0u;
+static volatile uint32_t s_tx_dropped  = 0u;
+
+/* SendFrame() runs in tasks and in the UART interrupt (ACKs); the queue is also
+ * emptied from the TX-complete interrupt. PRIMASK is saved and restored, so the lock
+ * is safe in both contexts. */
+static uint32_t TxLock(void)
+{
+    uint32_t key = __get_PRIMASK();
+    __disable_irq();
+    return key;
+}
+static void TxUnlock(uint32_t key) { __set_PRIMASK(key); }
+
+static void TxqPut(const uint8_t *data, uint16_t len)
+{
+    for (uint16_t i = 0u; i < len; i++) {
+        s_txq[(uint16_t)((s_txq_head + s_txq_used) % ESPIF_TX_QUEUE_BYTES)] = data[i];
+        s_txq_used++;
+    }
+}
+
+static uint8_t TxqGet(void)
+{
+    uint8_t b = s_txq[s_txq_head];
+    s_txq_head = (uint16_t)((s_txq_head + 1u) % ESPIF_TX_QUEUE_BYTES);
+    s_txq_used--;
+    return b;
+}
+
+/* Put the oldest waiting frame on the wire. Call with the TX lock held. */
+static void TxStartNext(void)
+{
+    while (s_txq_used >= 2u) {
+        uint16_t n = TxqGet();
+        n |= (uint16_t)((uint16_t)TxqGet() << 8u);
+        for (uint16_t i = 0u; i < n; i++) { s_tx_buf[i] = TxqGet(); }
+        if (HAL_UART_Transmit_IT(s_huart, s_tx_buf, n) == HAL_OK) {
+            s_tx_busy = 1u;
+            return;
+        }
+        s_tx_dropped++;   /* the UART refused it: lose this frame, try the next */
+    }
+    s_tx_busy = 0u;
+}
+
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart == s_huart) {
-        s_tx_busy = 0u;
+        uint32_t key = TxLock();
+        TxStartNext();
+        TxUnlock(key);
     }
 }
 
@@ -107,61 +165,69 @@ static uint16_t  s_rx_crc_rx  = 0u;
 static uint8_t   s_rx_payload[ESPIF_MAX_PAYLOAD_LEN];
 
 /*==============================================================================================
-** TX — build and send a framed message (non-blocking, fire-and-forget).
+** TX — build and send a framed message (non-blocking).
 ** Frame layout: [SOF0][SOF1][MSG_ID][LEN_LO][LEN_HI][PAYLOAD...][CRC_LO][CRC_HI]
 ** CRC covers:   MSG_ID + LEN_LO + LEN_HI + PAYLOAD
 **
-** The complete frame is assembled into a single static buffer and sent with one
-** HAL_UART_Transmit_IT call.  This eliminates intra-frame gaps between header,
-** payload and CRC that could occur when using multiple back-to-back transmit calls.
+** A frame goes on the wire as one HAL_UART_Transmit_IT call, so there are no gaps
+** between header, payload and CRC.
 **
-** ─── PACING CONTRACT ──────────────────────────────────────────────────────────
-** This function returns immediately. The actual UART transmit runs in the
-** background under the HAL TX-complete ISR which clears `s_tx_busy`. Any
-** subsequent SendFrame() call that arrives before TX-complete fires is
-** **silently dropped** (see the `s_tx_busy` early-return below). There is
-** no retry, no queue, and no error return.
+** ─── TX QUEUE ─────────────────────────────────────────────────────────────────
+** This function returns immediately. A frame offered while the previous one is still
+** being transmitted waits in a queue (ESPIF_TX_QUEUE_BYTES) and is sent from the
+** TX-complete interrupt, in the order offered.
 **
-** Callers therefore MUST space consecutive send calls out so the previous
-** transmit has completed. At 115200 baud the worst-case frame (7 header
-** + 512 payload = 519 bytes) takes about 45 ms; pacing at ≥ 100 ms per
-** frame is always safe. See GOcontroll-CodeBase/AGENTS.md rule 11.
+** Why: until November 2026 such a frame was silently dropped. The MQTT Broker block of
+** the Simulink blockset sends MODEM_CONFIG, LTE_ENABLE, MQTT_CONFIG and MQTT_ENABLE
+** directly after each other in the model start; only the first reached the ESP, so the
+** modem and the MQTT client never started and nothing arrived at the broker.
+**
+** A frame is still lost when the queue is full — a caller that keeps offering frames
+** faster than 115200 baud carries them. GO_communication_esp_tx_dropped() counts those.
 ** ────────────────────────────────────────────────────────────────────────────
 ==============================================================================================*/
 
 static void SendFrame(uint8_t msg_id, const uint8_t *payload, uint16_t len)
 {
     if (s_huart == NULL || len > ESPIF_MAX_PAYLOAD_LEN) { return; }
-    /* Previous frame still transmitting — DROP this one. See PACING CONTRACT
-     * in the block comment above: callers must pace their sends to avoid this.
-     * Symptom of mis-pacing: the second of two back-to-back frames never
-     * reaches the ESP (e.g. MODEM_CONFIG arrives but LTE_ENABLE does not). */
-    if (s_tx_busy) { return; }
+    if (payload == NULL) { len = 0u; }
 
-    static uint8_t s_tx_buf[ESPIF_FRAME_OVERHEAD + ESPIF_MAX_PAYLOAD_LEN];
-    uint16_t n = 0u;
+    uint8_t hdr[5];
+    hdr[0] = ESPIF_SOF0;
+    hdr[1] = ESPIF_SOF1;
+    hdr[2] = msg_id;
+    hdr[3] = (uint8_t)(len & 0xFFu);
+    hdr[4] = (uint8_t)(len >> 8u);
 
-    s_tx_buf[n++] = ESPIF_SOF0;
-    s_tx_buf[n++] = ESPIF_SOF1;
-    s_tx_buf[n++] = msg_id;
-    s_tx_buf[n++] = (uint8_t)(len & 0xFFu);
-    s_tx_buf[n++] = (uint8_t)(len >> 8u);
+    /* CRC over MSG_ID + LEN_LO + LEN_HI + PAYLOAD, outside the lock */
+    uint16_t crc = Crc16Update(0xFFFFu, hdr + 2u, 3u);
+    crc = Crc16Update(crc, payload, len);
+    uint8_t  crc_bytes[2] = { (uint8_t)(crc & 0xFFu), (uint8_t)(crc >> 8u) };
 
-    if (len > 0u && payload != NULL)
-    {
-        memcpy(s_tx_buf + n, payload, len);
-        n += len;
+    uint16_t n = (uint16_t)(ESPIF_FRAME_OVERHEAD + len);
+    uint8_t  n_bytes[2] = { (uint8_t)(n & 0xFFu), (uint8_t)(n >> 8u) };
+
+    uint32_t key = TxLock();
+    if ((uint32_t)n + 2u > (uint32_t)(ESPIF_TX_QUEUE_BYTES - s_txq_used)) {
+        s_tx_dropped++;
+    } else {
+        TxqPut(n_bytes, 2u);
+        TxqPut(hdr, 5u);
+        TxqPut(payload, len);
+        TxqPut(crc_bytes, 2u);
+        if (!s_tx_busy) { TxStartNext(); }
     }
+    TxUnlock(key);
+}
 
-    /* CRC over bytes 2..4+len  (MSG_ID + LEN_LO + LEN_HI + PAYLOAD) */
-    uint16_t crc = Crc16(s_tx_buf + 2u, 3u + len);
-    s_tx_buf[n++] = (uint8_t)(crc & 0xFFu);
-    s_tx_buf[n++] = (uint8_t)(crc >> 8u);
-
-    s_tx_busy = 1u;
-    if (HAL_UART_Transmit_IT(s_huart, s_tx_buf, n) != HAL_OK) {
-        s_tx_busy = 0u;
-    }
+/**************************************************************************************
+** \brief     Number of frames to the ESP that were lost because the TX queue was full
+**            or the UART refused them. Stays 0 in a healthy application.
+** \return    Count since start-up.
+***************************************************************************************/
+uint32_t GO_communication_esp_tx_dropped(void)
+{
+    return s_tx_dropped;
 }
 
 static void SendAck(uint8_t msg_id)

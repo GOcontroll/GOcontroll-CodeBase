@@ -107,24 +107,20 @@ examples/    Self-contained main()s, one per topic (Linux only at present)
     must run from task context.
     See `code/GO_communication_can.h:121,154,190`.
 
-11. **ESP frame-pacing (S1 only):** `GO_communication_esp.c::SendFrame()` is
-    a single-buffer `HAL_UART_Transmit_IT` send with a `s_tx_busy` guard.
-    Frames offered while the previous transmit is still in progress are
-    **silently dropped** — no retry, no error return, no queue. Practical
-    consequence: do **not** call two ESP send functions back-to-back from
-    the same task context without spacing them out.
+11. **ESP frames are queued, not paced by the caller (S1 only):**
+    `GO_communication_esp.c::SendFrame()` returns immediately. A frame offered
+    while the previous one is still on the UART waits in a TX queue
+    (`ESPIF_TX_QUEUE_BYTES`, 2048 bytes) and is sent from the TX-complete
+    interrupt, in the order offered. So `set_modem_config` + `enable_lte` +
+    `set_mqtt_config` + `enable_mqtt` directly after each other all reach the
+    ESP.
 
-    Common trap: `GO_communication_esp_set_modem_config(...)` followed
-    immediately by `GO_communication_esp_enable_lte(true)` looks like one
-    "configure-and-enable" action but is two UART frames; the second one
-    will not reach the ESP. Same applies to `mqtt_configure` +
-    `mqtt_enable`, and to any pair of `_set_*` + `_enable_*` calls.
-
-    Recommended pattern: drive the bring-up from a periodic task with a
-    state-machine that sends one frame per tick (e.g. one frame per
-    10–100 ms). One UART frame at 115200 baud takes ≤ 50 ms even at the
-    512-byte payload limit, so a 100 ms task tick is always safe.
-    See `code/GO_communication_esp.c:119–148` for the SendFrame source.
+    Until November 2026 the second and later frames were **silently dropped**;
+    that is what kept the Simulink MQTT Broker block from ever starting the
+    modem and the MQTT client. A frame is now only lost when the queue is full,
+    i.e. when the application keeps offering frames faster than 115200 baud
+    carries them (a 512-byte publish takes about 45 ms).
+    `GO_communication_esp_tx_dropped()` counts those and must stay 0.
 
 12. **The application must define `osThreadId_t model_step_thread`.** The
     controller-info task (started unconditionally by
@@ -264,10 +260,10 @@ The source-of-truth lives in:
 - **CAN bus stops after one bus-off** → recovery only happens when
   `GO_communication_can_bus_off_recovery` is wired into the
   `HAL_FDCAN_ErrorStatusCallback` (S1). See rule 10.
-- **ESP/modem/MQTT only receives the first of two back-to-back frames**
-  (e.g. `MODEM_CONFIG` arrives but `LTE_ENABLE` does not) → caller
-  invoked two ESP send functions in the same task tick; the second
-  hit the `s_tx_busy` drop. See rule 11.
+- **Frames to the ESP go missing** (publishes that never arrive) →
+  `GO_communication_esp_tx_dropped()` is not 0: the application offers
+  frames faster than the UART carries them and the TX queue is full. See
+  rule 11.
 - **Link error `undefined reference to model_step_thread`** → the
   application did not define the `osThreadId_t model_step_thread` global
   that the controller-info task reads. See rule 12.

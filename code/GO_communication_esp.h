@@ -41,23 +41,20 @@ extern "C" {
 /****************************************************************************************
 * S1 platform only (STM32H)
 *
-* PACING WARNING — read before sending two frames in a row.
-* ----------------------------------------------------------
+* Sending frames
+* --------------
 * All public send functions below (`*_send_*`, `*_set_*`, `*_enable_*`,
-* `*_mqtt_publish`, `*_mqtt_subscribe`, `*_mqtt_unsubscribe`) ultimately call
-* `SendFrame()` in GO_communication_esp.c, which uses `HAL_UART_Transmit_IT`
-* with a `s_tx_busy` guard. Frames offered while the previous transmit is
-* still in progress are **silently dropped** — no retry, no error return.
-*
-* In practice this means a caller MUST NOT call two of these functions
-* back-to-back from the same task tick / loop iteration. Example trap:
+* `*_mqtt_publish`, `*_mqtt_subscribe`, `*_mqtt_unsubscribe`) return immediately.
+* A frame offered while the previous one is still on the UART waits in a TX
+* queue and is sent in the order offered, so calls may follow each other
+* directly:
 *
 *     GO_communication_esp_set_modem_config(apn, pin);
-*     GO_communication_esp_enable_lte(true);   // ← dropped, modem never starts
+*     GO_communication_esp_enable_lte(true);
 *
-* Recommended pattern: drive bring-up from a periodic state-machine that
-* sends ONE frame per tick (≥ 10 ms spacing). At 115200 baud a worst-case
-* 519-byte frame takes ≈ 45 ms, so a 100 ms tick is always safe.
+* A frame is only lost when that queue is full, i.e. when frames are offered
+* faster than 115200 baud carries them (a worst-case 519-byte frame takes
+* about 45 ms). GO_communication_esp_tx_dropped() counts those.
 * See GOcontroll-CodeBase/AGENTS.md rule 11.
 ****************************************************************************************/
 #ifdef GOCONTROLL_STM
@@ -232,6 +229,15 @@ void GO_communication_esp_init(UART_HandleTypeDef *huart);
 ** \return    none
 ***************************************************************************************/
 void GO_communication_esp_uart_rx_callback(UART_HandleTypeDef *huart);
+
+/**************************************************************************************
+** \brief     Number of frames to the ESP that were lost because the TX queue was full
+**            or the UART refused them. The send functions below return immediately; a
+**            frame offered while another is being transmitted waits in that queue.
+**            Stays 0 in a healthy application.
+** \return    Count since start-up.
+***************************************************************************************/
+uint32_t GO_communication_esp_tx_dropped(void);
 
 /* --- STM32H → ESP frames --- */
 
