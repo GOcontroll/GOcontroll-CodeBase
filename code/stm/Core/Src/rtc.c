@@ -25,8 +25,9 @@
  * the calendar when the backup domain loses its supply. */
 #define RTC_CALENDAR_SET_MARKER 0xBEEFU
 /* Written to TAMP backup register 1 when the LSE crystal did not start and the RTC
- * runs on the LSI instead. */
-#define RTC_LSE_FAILED_MARKER   0x0BADU
+ * runs on the LSI instead. Not 0x0BAD: controllers hold that value from the firmware
+ * that tried the crystal on the low drive level, and they must try again. */
+#define RTC_LSE_FAILED_MARKER   0x0BA2U
 /* USER CODE END 0 */
 
 RTC_HandleTypeDef hrtc;
@@ -126,6 +127,15 @@ void HAL_RTC_MspInit(RTC_HandleTypeDef* rtcHandle)
     uint32_t rtcClockSource = RCC_RTCCLKSOURCE_LSE;
 
     __HAL_RCC_RTCAPB_CLK_ENABLE(); /* needed to read the TAMP backup registers */
+
+    /* The crystal of the S1 does not start on the low drive level, the reset value
+     * (measured: no LSERDY within 4 s; it starts from medium-low upwards). The level
+     * can only be set while the LSE is off. */
+    HAL_PWR_EnableBkUpAccess();
+    if (READ_BIT(RCC->BDCR, RCC_BDCR_LSEON) == 0U)
+    {
+      __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_MEDIUMHIGH);
+    }
 
     OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSE;
     OscInitStruct.LSEState       = RCC_LSE_ON;
