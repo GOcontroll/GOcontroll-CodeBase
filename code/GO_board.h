@@ -161,7 +161,9 @@ void GO_board_controller_power_stop_adc_thread(void);
 
 /**************************************************************************************
 ** \brief     Control the controller-active relay/output.
-**            STM32H5: writes the KL15_CONTROLLER_UCO GPIO pin.
+**            STM32H5: writes the KL15_CONTROLLER_UCO GPIO pin. GO_stm_initialize()
+**            leaves it low: the controller switches off with K15 unless the
+**            application sets it active.
 **            Linux:   writes to /sys/class/leds/power-active/brightness.
 ** \param     state  1 = active (on), 0 = inactive (off).
 ** \return    0 on success, -1 on failure.

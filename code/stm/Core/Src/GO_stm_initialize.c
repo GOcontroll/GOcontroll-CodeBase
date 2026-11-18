@@ -83,10 +83,10 @@ void GO_stm_initialize(void)
 {
 	HAL_Init();
 	SystemClock_Config();
+	/* Leaves the controller-active pin (KL15_CONTROLLER_UCO) low, its reset state: the
+	 * application decides whether it keeps the controller on after K15 drops, with
+	 * GO_board_controller_power_controller_active(). */
 	MX_GPIO_Init();
-	/* Set keep alive pin high as soon as possible */
-	HAL_GPIO_WritePin(KL15_CONTROLLER_UCO_GPIO_Port, KL15_CONTROLLER_UCO_Pin,
-					  GPIO_PIN_SET);
 	MPU_Config();
 	MX_ICACHE_Init();
 	MX_SPI1_Init();
