@@ -18,6 +18,8 @@
  *               .payload_size = sizeof(rx_buf),
  *           };
  *           GO_communication_mqtt_sub_register(&sub);
+ *           GO_communication_mqtt_poll();   // switch on the receive queue NOW, before
+ *                                           // subscribing — see the queue note below
  *
  *           // 2. Configure and connect
  *           GO_communication_mqtt_configure("192.168.1.10", 1883,
@@ -43,6 +45,12 @@
  *         OLDEST message is dropped and counted (GO_communication_mqtt_dropped()).
  *         Without poll() the old behaviour applies: the driver writes the buffer
  *         directly and the last message wins.
+ *         Call poll() once BEFORE the first subscribe (step 1 above). If the first
+ *         poll() only comes from the application loop, everything that arrives
+ *         between subscribe and the first loop iteration — on Linux the module
+ *         detection of a few seconds, plus a retained message on connect — still
+ *         takes the old path and is not counted as dropped. Measured on an M1: 5/5
+ *         at rest, 1/5 right after a restart, until poll() moved into the init.
  * \note   Linux: the network loop runs in a background thread started by
  *         GO_communication_mqtt_enable(true). S1: messages arrive from the UART
  *         interrupt of the ESP driver.
@@ -171,7 +179,8 @@ void GO_communication_mqtt_unsubscribe(const char *topic);
  *         not empty: copy the oldest message into payload/length and set new_flag.
  *         Call it once per application cycle, and again after clearing new_flag to
  *         get the next message (see the usage example at the top of this file).
- *         The first call switches the driver to queued delivery.
+ *         The first call switches the driver to queued delivery — make that first
+ *         call before subscribing, so no message takes the old path.
  **************************************************************************************/
 void GO_communication_mqtt_poll(void);
 

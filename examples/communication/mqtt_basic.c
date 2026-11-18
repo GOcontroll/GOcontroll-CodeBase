@@ -120,6 +120,7 @@ int main(void)
     /* Register the subscription block before enabling — the driver needs
      * to know about it before the first message can arrive. */
     GO_communication_mqtt_sub_register(&cmd_sub);
+    GO_communication_mqtt_poll();   /* receive queue on BEFORE subscribing: nothing takes the old path */
     GO_communication_mqtt_subscribe(TOPIC_SUBSCRIBE, 1u);
 
     GO_communication_mqtt_configure(BROKER_HOST, BROKER_PORT,
