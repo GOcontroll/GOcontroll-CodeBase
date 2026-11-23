@@ -230,6 +230,14 @@ uint32_t GO_communication_esp_tx_dropped(void)
     return s_tx_dropped;
 }
 
+uint16_t GO_communication_esp_tx_free(void)
+{
+    uint32_t key  = TxLock();
+    uint16_t free = (uint16_t)(ESPIF_TX_QUEUE_BYTES - s_txq_used);
+    TxUnlock(key);
+    return free;
+}
+
 static void SendAck(uint8_t msg_id)
 {
     SendFrame(ESPIF_MSG_ACK, &msg_id, 1u);
@@ -326,6 +334,26 @@ static void DispatchFrame(uint8_t msg_id, const uint8_t *payload, uint16_t len)
             GO_communication_esp_on_modem_status(state, ip);
             break;
         }
+
+        /* ------------------------------------------------------------------ */
+        case ESPIF_MSG_XCP_CTO:
+        {
+            /* Records [len][packet]; one that runs past the payload ends the frame. */
+            uint16_t off = 0u;
+            while (off < len)
+            {
+                uint8_t plen = payload[off++];
+                if (plen == 0u || (uint16_t)(off + plen) > len) { break; }
+                GO_communication_esp_on_xcp_cto(payload + off, plen);
+                off = (uint16_t)(off + plen);
+            }
+            break;
+        }
+
+        /* ------------------------------------------------------------------ */
+        case ESPIF_MSG_XCP_CLOSE:
+            GO_communication_esp_on_xcp_close();
+            break;
 
         /* ------------------------------------------------------------------ */
         default:
@@ -558,6 +586,17 @@ void GO_communication_esp_send_cyclic_info(void)
     info.stack_available = (stack > 0xFFFFu) ? 0xFFFFu : (uint16_t)stack;
 
     SendFrame(ESPIF_MSG_CYCLIC_INFO, (const uint8_t *)&info, sizeof(info));
+}
+
+/**************************************************************************************
+** \brief     Send XCP packets to the Bluetooth host as one ESPIF_MSG_XCP_DTO frame.
+** \param     records  One or more records [len(u8)][XCP packet of len bytes].
+** \param     len      Total length in bytes, at most ESPIF_MAX_PAYLOAD_LEN.
+** \return    none
+***************************************************************************************/
+void GO_communication_esp_send_xcp_dto(const uint8_t *records, uint16_t len)
+{
+    SendFrame(ESPIF_MSG_XCP_DTO, records, len);
 }
 
 /**************************************************************************************
@@ -854,6 +893,24 @@ __attribute__((weak)) void GO_communication_esp_on_modem_status(uint8_t state, c
 {
     (void)state;
     (void)ip;
+}
+
+/**************************************************************************************
+** \brief     Called from the UART interrupt for every XCP command of the Bluetooth
+**            host. GO_xcp.c overrides it; without XCP the command is ignored.
+***************************************************************************************/
+__attribute__((weak)) void GO_communication_esp_on_xcp_cto(const uint8_t *packet, uint8_t len)
+{
+    (void)packet;
+    (void)len;
+}
+
+/**************************************************************************************
+** \brief     Called from the UART interrupt when the Bluetooth host of the XCP tunnel
+**            is gone. GO_xcp.c overrides it; without XCP nothing happens.
+***************************************************************************************/
+__attribute__((weak)) void GO_communication_esp_on_xcp_close(void)
+{
 }
 
 /**************************************************************************************

@@ -1,10 +1,12 @@
 /**************************************************************************************
  * \file   GO_xcp.c
  * \brief  XCP target-specific implementation for GOcontroll hardware.
- *         Interfaces the XCP stack with the underlying transport (CAN, TCP, UDP).
+ *         Interfaces the XCP stack with the underlying transport (CAN, TCP, UDP, and on
+ *         the Moduline S1 the UART tunnel through the ESP32 to a Bluetooth host).
  *
  *         Platform selection via preprocessor define:
- *           GOCONTROLL_STM  →  STM32H5 (Moduline S1): FDCAN via HAL + FreeRTOS
+ *           GOCONTROLL_STM  →  STM32H5 (Moduline S1): FDCAN via HAL + FreeRTOS, or
+ *                              Bluetooth through the ESP32
  *           (default)       →  Linux/IMX8 (Moduline L4 / Moduline M1): sockets
  *
  * \internal
@@ -55,6 +57,7 @@
 #include "Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h"
 #include "cmsis_os2.h"
 #include "GO_communication_can.h"
+#include "GO_communication_esp.h"
 #elif defined(GOCONTROLL_LINUX)
 
 #include <arpa/inet.h>
@@ -182,7 +185,8 @@ void GO_xcp_write_data(void *data, uint8_t elements, void *location) {
 /****************************************************************************************
  * Data declarations
  ****************************************************************************************/
-static uint8_t				dataToSend[16] = {0};
+/* length byte + largest packet + checksum byte */
+static uint8_t				dataToSend[1 + GO_XCP_ESP_PACKET_MAX + 1] = {0};
 static uint32_t				xcpDtoId;
 static uint8_t				xcpDtoIdExt;
 void					   *XcpConnection_fd;
@@ -191,9 +195,28 @@ static uint8_t				xcpTransmissionBus = 0;
 osMessageQueueId_t xcp_received;
 static osSemaphoreId_t s_daq_semaphore = NULL;
 
+/* Bluetooth tunnel (GO_xcp_init_esp) */
+#define XCP_ESP_COMMAND_QUEUE 16u
+/* TX queue space DAQ data leaves alone, so it never crowds out the other frames to the ESP */
+#define XCP_ESP_TX_RESERVE    (ESPIF_MAX_PAYLOAD_LEN + ESPIF_FRAME_OVERHEAD + 2u)
+
+typedef struct {
+	uint8_t len;
+	uint8_t data[GO_XCP_ESP_PACKET_MAX];
+} _xcpEspCommand;
+
+static osMessageQueueId_t s_esp_commands = NULL;
+static volatile uint8_t   s_esp_closed   = 0;
+/* Records [len][packet] gathered for one XCP_DTO frame */
+static uint8_t            s_esp_batch[ESPIF_MAX_PAYLOAD_LEN];
+static uint16_t           s_esp_batch_len = 0;
+static uint8_t            s_esp_daq       = 0; /* 1 while the batch holds DAQ data */
+
 /****************************************************************************************/
 
 static uint8_t XcpCanSend(uint8_t *data);
+static uint8_t XcpEspSend(uint8_t *data);
+static void    XcpEspFlush(void);
 
 /****************************************************************************************/
 // TODO Channels must be assigned during timer creation.
@@ -300,6 +323,74 @@ void GO_xcp_thread_can(void *args) {
 }
 
 /**************************************************************************************
+** \brief     Serve XCP to a Bluetooth host, through the UART tunnel of the ESP32,
+**            instead of over CAN. Start GO_xcp_thread_esp afterwards.
+** \return    none
+***************************************************************************************/
+void GO_xcp_init_esp(void) {
+	xcpTransmissionBus = XCPESP;
+	XcpDynamicConfigurator(0, GO_XCP_ESP_PACKET_MAX, GO_XCP_ESP_PACKET_MAX);
+
+	s_daq_semaphore = osSemaphoreNew(1, 0, NULL);
+	s_esp_commands  = osMessageQueueNew(XCP_ESP_COMMAND_QUEUE, sizeof(_xcpEspCommand), NULL);
+}
+
+/****************************************************************************************/
+
+/* UART interrupt: one XCP command of the Bluetooth host. Too long or queue full: lost,
+ * the master times out and repeats it. */
+void GO_communication_esp_on_xcp_cto(const uint8_t *packet, uint8_t len) {
+	_xcpEspCommand command = {0};
+
+	if (s_esp_commands == NULL || len > GO_XCP_ESP_PACKET_MAX) {
+		return;
+	}
+	command.len = len;
+	memcpy(command.data, packet, len);
+	osMessageQueuePut(s_esp_commands, &command, 0, 0);
+}
+
+/* UART interrupt: the Bluetooth host is gone. */
+void GO_communication_esp_on_xcp_close(void) { s_esp_closed = 1; }
+
+/**************************************************************************************
+** \brief     FreeRTOS task that processes the XCP commands of the Bluetooth host and
+**            sends the DAQ data to it.
+** \param     args  unused task argument
+** \return    none (infinite loop)
+***************************************************************************************/
+void GO_xcp_thread_esp(void *args) {
+	_xcpEspCommand command;
+
+	while (1) {
+		/* Wait up to 1 ms for a command; answers gathered in one frame */
+		if (osMessageQueueGet(s_esp_commands, &command, 0, 1) == osOK) {
+			do {
+				XcpCommunicationHandling(command.data, command.len, dataToSend);
+			} while (osMessageQueueGet(s_esp_commands, &command, 0, 0) == osOK);
+			XcpEspFlush();
+		}
+
+		/* The host left without a DISCONNECT: stop its DAQ lists */
+		if (s_esp_closed) {
+			uint8_t stop[2] = {0xdd, 0x00}; /* START_STOP_SYNCH, stop all */
+
+			s_esp_closed = 0;
+			XcpCommunicationHandling(stop, sizeof(stop), dataToSend);
+			s_esp_batch_len = 0; /* nobody is left to read the answer */
+		}
+
+		/* If model_step triggered a DAQ transmission, send it now */
+		if (osSemaphoreAcquire(s_daq_semaphore, 0) == osOK) {
+			s_esp_daq = 1;
+			XcpDataTransmission();
+			XcpEspFlush();
+			s_esp_daq = 0;
+		}
+	}
+}
+
+/**************************************************************************************
 ** \brief     Trigger DAQ data transmission from the model step context.
 **            The actual transmission is deferred to the XCP task to avoid
 **            blocking model_step with per-frame CAN delays.
@@ -322,9 +413,43 @@ uint8_t GO_xcp_send_data(uint8_t *data) {
 	switch (xcpTransmissionBus) {
 		case XCPCAN:
 			return XcpCanSend(data);
+		case XCPESP:
+			return XcpEspSend(data);
 		default:
 			return 1;
 	}
+}
+
+/****************************************************************************************/
+
+/* Send the gathered records as one XCP_DTO frame. DAQ data is skipped for this cycle
+ * when the TX queue to the ESP has no room to spare; an answer to a command always
+ * goes. */
+static void XcpEspFlush(void) {
+	if (s_esp_batch_len == 0) {
+		return;
+	}
+	if (!s_esp_daq ||
+		GO_communication_esp_tx_free() >= s_esp_batch_len + XCP_ESP_TX_RESERVE) {
+		GO_communication_esp_send_xcp_dto(s_esp_batch, s_esp_batch_len);
+	}
+	s_esp_batch_len = 0;
+}
+
+/* Add one packet (data[0] = length, then the packet) to the batch for the ESP. */
+static uint8_t XcpEspSend(uint8_t *data) {
+	uint16_t record = (uint16_t)data[0] + 1u;
+
+	if (data[0] == 0 || data[0] > GO_XCP_ESP_PACKET_MAX) {
+		err("Could not send message, incorrect size: %d\n", data[0]);
+		return 1;
+	}
+	if (s_esp_batch_len + record > sizeof(s_esp_batch)) {
+		XcpEspFlush();
+	}
+	memcpy(&s_esp_batch[s_esp_batch_len], data, record);
+	s_esp_batch_len += record;
+	return 0;
 }
 
 /****************************************************************************************/

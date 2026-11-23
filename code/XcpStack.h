@@ -89,6 +89,7 @@ extern "C" {
 #define XCPUSB 1
 #define XCPETH 2
 #define XCPCAN 3
+#define XCPESP 4 /* UART tunnel through the ESP32 to a Bluetooth host (Moduline S1) */
 
 /****************************************************************************************
  * Data declarations

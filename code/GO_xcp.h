@@ -1,10 +1,12 @@
 /**************************************************************************************
  * \file   GO_xcp.h
  * \brief  XCP target-specific interface for GOcontroll hardware.
- *         Interfaces the XCP stack with the underlying transport (CAN, TCP, UDP).
+ *         Interfaces the XCP stack with the underlying transport (CAN, TCP, UDP, and on
+ *         the Moduline S1 the UART tunnel through the ESP32 to a Bluetooth host).
  *
  *         Platform selection via preprocessor define:
- *           GOCONTROLL_STM  →  STM32H5 (Moduline S1): FDCAN via HAL + FreeRTOS
+ *           GOCONTROLL_STM  →  STM32H5 (Moduline S1): FDCAN via HAL + FreeRTOS, or
+ *                              Bluetooth through the ESP32
  *           (default)       →  Linux/IMX8 (Moduline L4 / Moduline M1): sockets
  *
  * \internal
@@ -89,6 +91,9 @@ extern "C" {
 #define XCPSTATICMEMORY (2048)
 
 #ifdef GOCONTROLL_STM
+/** \brief MAX_CTO and MAX_DTO over the Bluetooth tunnel; the limit of XcpStack.c */
+#define GO_XCP_ESP_PACKET_MAX (32)
+
 /** \brief STM32H5: use FreeRTOS pvPortMalloc/pvPortFree */
 #define DYNAMICMEMORYALLOCATION         (0)
 #define DYNAMICMEMORYALLOCATIONFREERTOS (0)
@@ -184,11 +189,27 @@ void GO_xcp_init_can(FDCAN_HandleTypeDef *can_channel,
 				   uint8_t xcp_receive_id_extended);
 
 /**************************************************************************************
+** \brief     Serve XCP to a Bluetooth host, through the UART tunnel of the ESP32
+**            (S1-kennisbank s1-uart-esp-stm32 §4.15), instead of over CAN. MAX_CTO and
+**            MAX_DTO are GO_XCP_ESP_PACKET_MAX. Start GO_xcp_thread_esp afterwards.
+** \return    none
+***************************************************************************************/
+void GO_xcp_init_esp(void);
+
+/**************************************************************************************
 ** \brief     FreeRTOS task that processes incoming XCP CAN frames.
 ** \param     args  unused task argument
 ** \return    none (infinite loop)
 ***************************************************************************************/
 void GO_xcp_thread_can(void *args);
+
+/**************************************************************************************
+** \brief     FreeRTOS task that processes the XCP commands of the Bluetooth host and
+**            sends the DAQ data to it.
+** \param     args  unused task argument
+** \return    none (infinite loop)
+***************************************************************************************/
+void GO_xcp_thread_esp(void *args);
 
 /**************************************************************************************
 ** \brief     Trigger DAQ data transmission from the model step context.

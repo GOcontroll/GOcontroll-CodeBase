@@ -89,6 +89,8 @@ extern "C" {
 **   0x30–0x3F  ESP → STM32H  MQTT events
 **   0x40–0x4F  ESP → STM32H  GPS data
 **   0x50–0x5F  ESP → STM32H  modem / LTE status
+**   0x60–0x7F  service firmware (not used by the application)
+**   0x80–0x8F  XCP tunnel to the Bluetooth host (S1-kennisbank s1-uart-esp-stm32 §4.15)
 ==============================================================================================*/
 typedef enum
 {
@@ -115,6 +117,11 @@ typedef enum
     ESPIF_MSG_TIME_SYNC         = 0x32u,  /**< RTC time sync. Payload: 7 bytes (year LE + month + day + hour + minute + second). */
     ESPIF_MSG_GPS_DATA          = 0x40u,  /**< GPS fix. Payload: 25 bytes fixed.              */
     ESPIF_MSG_MODEM_STATUS      = 0x50u,  /**< Modem state + IP. Payload: variable.           */
+
+    /* XCP tunnel: payload = one or more records [len(u8)][XCP packet of len bytes] */
+    ESPIF_MSG_XCP_CTO           = 0x80u,  /**< ESP → STM32H: XCP commands from the Bluetooth host.     */
+    ESPIF_MSG_XCP_DTO           = 0x81u,  /**< STM32H → ESP: XCP responses and DAQ packets. No ACK.    */
+    ESPIF_MSG_XCP_CLOSE         = 0x82u,  /**< ESP → STM32H: the Bluetooth host is gone. Payload: none. */
 } EspInterface_MsgId_t;
 
 /*==============================================================================================
@@ -239,7 +246,22 @@ void GO_communication_esp_uart_rx_callback(UART_HandleTypeDef *huart);
 ***************************************************************************************/
 uint32_t GO_communication_esp_tx_dropped(void);
 
+/**************************************************************************************
+** \brief     Free space in the TX queue, to hold back traffic that may be skipped (XCP
+**            DAQ) before it crowds out the frames that may not.
+** \return    Bytes; a frame needs its payload length + ESPIF_FRAME_OVERHEAD + 2.
+***************************************************************************************/
+uint16_t GO_communication_esp_tx_free(void);
+
 /* --- STM32H → ESP frames --- */
+
+/**************************************************************************************
+** \brief     Send XCP packets to the Bluetooth host as one ESPIF_MSG_XCP_DTO frame.
+** \param     records  One or more records [len(u8)][XCP packet of len bytes].
+** \param     len      Total length in bytes, at most ESPIF_MAX_PAYLOAD_LEN.
+** \return    none
+***************************************************************************************/
+void GO_communication_esp_send_xcp_dto(const uint8_t *records, uint16_t len);
 
 /**************************************************************************************
 ** \brief     Gather module identity and application version data and send an
@@ -416,6 +438,24 @@ void GO_communication_esp_on_gps_data(const EspInterface_GpsData_t *gps);
 ** \return    none
 ***************************************************************************************/
 void GO_communication_esp_on_modem_status(uint8_t state, const char *ip);
+
+/**************************************************************************************
+** \brief     Called from the UART interrupt for every XCP command the Bluetooth host
+**            sent. The default ignores it; GO_xcp.c overrides it to queue the command
+**            for the XCP task. Runs in interrupt context: do not block.
+** \param     packet  The XCP command packet, valid for the duration of the call.
+** \param     len     Its length in bytes (1 or more).
+** \return    none
+***************************************************************************************/
+void GO_communication_esp_on_xcp_cto(const uint8_t *packet, uint8_t len);
+
+/**************************************************************************************
+** \brief     Called from the UART interrupt when the Bluetooth host of the XCP tunnel
+**            is gone (disconnected or unsubscribed). The default ignores it; GO_xcp.c
+**            overrides it to stop the DAQ transmission.
+** \return    none
+***************************************************************************************/
+void GO_communication_esp_on_xcp_close(void);
 
 #endif /* GOCONTROLL_STM */
 
