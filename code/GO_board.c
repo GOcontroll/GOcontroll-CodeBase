@@ -684,7 +684,8 @@ extern _hardwareConfig hardwareConfig;
 /* Look up an IIO device by its kernel name (e.g. "mcp3004", "lis2dw12") by
  * scanning /sys/bus/iio/devices/iio:device*. Writes the matching basename
  * ("iio:deviceN") into basename_out so the caller can build both sysfs and
- * /dev/<basename> paths. Returns 0 on success, -1 if not found. */
+ * /dev/<basename> paths. Returns 0 on success, -1 if not found or if the
+ * basename does not fit in out_size bytes. */
 static int iio_find_device(const char *name, char *basename_out, size_t out_size) {
 	DIR *dir = opendir("/sys/bus/iio/devices");
 	if (!dir) return -1;
@@ -709,8 +710,13 @@ static int iio_find_device(const char *name, char *basename_out, size_t out_size
 		buf[n] = '\0';
 
 		if (strcmp(buf, name) == 0) {
-			snprintf(basename_out, out_size, "%s", ent->d_name);
-			found = 0;
+			/* The basename must fit whole: a cut-off name would make the caller open
+			 * another sysfs path, so a name that does not fit counts as not found. */
+			size_t len = strlen(ent->d_name);
+			if (len < out_size) {
+				memcpy(basename_out, ent->d_name, len + 1);
+				found = 0;
+			}
 			break;
 		}
 	}
