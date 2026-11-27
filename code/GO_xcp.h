@@ -91,7 +91,7 @@ extern "C" {
 #define XCPSTATICMEMORY (2048)
 
 #ifdef GOCONTROLL_STM
-/** \brief MAX_CTO and MAX_DTO over the Bluetooth tunnel; the limit of XcpStack.c */
+/** \brief MAX_CTO and MAX_DTO over the Bluetooth tunnel (XcpStack.c handles up to 255) */
 #define GO_XCP_ESP_PACKET_MAX (32)
 
 /** \brief STM32H5: use FreeRTOS pvPortMalloc/pvPortFree */

@@ -90,9 +90,11 @@ and checksum)
 #define XCPPROTOCOLLAYERVERSION 0x01
 #define XCPTRANSLORTLAYERVERSION 0x01
 
-/* XCP CTO and DTO message length definitions */
-#define XCPMAXDTOLENGTH (32)
-#define XCPMAXCTOLENGTH (32)
+/* XCP CTO and DTO message length definitions: the largest packets a transport may
+ * announce with XcpDynamicConfigurator (TCP and UDP announce 255). The master fills an
+ * ODT up to the announced MAX_DTO, so a smaller buffer here overflows. */
+#define XCPMAXDTOLENGTH (255)
+#define XCPMAXCTOLENGTH (255)
 
 /* Defines for the type of packet to be send by the stack */
 #define VARIABELESEND 0x01
@@ -979,6 +981,9 @@ static void XcpFreeDaq(uint8_t* dataToSend) {
 #else
 	free(daq);	// Free dynamically assigned memory from DAQ lists
 #endif
+	/* A second FREE_DAQ (a new master session that has not allocated yet) must not free
+	 * the same memory again: that aborts the application ("double free detected") */
+	daq = NULL;
 
 #else
 	memoryStackPointer =
@@ -1027,10 +1032,12 @@ static void XcpAllocDaq(uint8_t* dataReceived, uint8_t* dataToSend) {
 #else
 		dbg("Allocating %d elements\n", xcpCommunication.nrOfDaqLists);
 
-		daq = malloc(*(uint16_t*)&dataReceived[2] * sizeof(_daq));
+		/* calloc: a FREE_DAQ before every ODT is allocated must not free garbage */
+		daq = calloc(*(uint16_t*)&dataReceived[2], sizeof(_daq));
 		if (daq == NULL) {
 			dbg(" could not allocate daq\n");
 
+			xcpCommunication.nrOfDaqLists = 0;
 			XcpNegativeResponse(dataToSend, XCPERRORMEMORYOVERFLOW);
 			return;
 		}
@@ -1085,7 +1092,7 @@ static void XcpAllocOdt(uint8_t* dataReceived, uint8_t* dataToSend) {
 		pvPortMalloc(dataReceived[4] * sizeof(_odt));
 #else
 	daq[*(uint16_t*)&dataReceived[2]].odt =
-		malloc(dataReceived[4] *
+		calloc(dataReceived[4],
 			   sizeof(_odt));  // Dynamically assign memory to number of odt's
 	if (daq[*(uint16_t*)&dataReceived[2]].odt == NULL) {
 		err(" could not allocate odt\n");
@@ -1264,8 +1271,13 @@ static _entry* XcpGetOdtEntry(uint16_t daqList, uint8_t odtValue,
 ** \return    none.
 ****************************************************************************************/
 void XcpDataTransmission(void) {
-	// one byte extra for length,
-	uint8_t data[1 + XCPMAXDTOLENGTH];
+	/* length byte + largest DTO + checksum byte. Static: on the Moduline S1 this runs in
+	 * the XCP task, whose stack is small; there is only one caller per platform. */
+	static uint8_t data[1 + XCPMAXDTOLENGTH + 1];
+	/* The packet is data[1] (PID) up to data[MAX_DTO]: dataEnd is one past its last byte */
+	const uint16_t dataEnd = 1u + ((xcpCommunication.dtoLength < XCPMAXDTOLENGTH)
+									   ? xcpCommunication.dtoLength
+									   : XCPMAXDTOLENGTH);
 
 	if (xcpCommunication.status == 0x40) {
 		xcpCommunication.active = 1;
@@ -1283,11 +1295,19 @@ void XcpDataTransmission(void) {
 													// identify ODT to master
 				for (uint8_t odtCount = 0;
 					 odtCount < daq[daqListCount].nrOfOdts; odtCount++) {
-					uint8_t dataPointer = 2;
+					uint16_t dataPointer = 2;
 					for (uint8_t odtEntryCount = 0;
 						 odtEntryCount <
 						 daq[daqListCount].odt[odtCount].nrOfOdtEntries;
 						 odtEntryCount++) {
+						/* An ODT longer than MAX_DTO is cut off: never write past data[] */
+						if (dataPointer + daq[daqListCount]
+											  .odt[odtCount]
+											  .entry[odtEntryCount]
+											  .sizeOfDaqElement >
+							dataEnd) {
+							break;
+						}
 						GO_xcp_read_data(&data[dataPointer],
 									daq[daqListCount]
 										.odt[odtCount]
@@ -1334,11 +1354,15 @@ void XcpDataTransmission(void) {
 					 odtCount++) {
 					_odt* odt = XcpGetOdt(daqListCount, odtCount);
 
-					uint8_t dataPointer = 2;
+					uint16_t dataPointer = 2;
 					for (uint8_t odtEntryCount = 0;
 						 odtEntryCount < odt->nrOfOdtEntries; odtEntryCount++) {
 						_entry* entry = XcpGetOdtEntry(daqListCount, odtCount,
 													   odtEntryCount);
+						/* An ODT longer than MAX_DTO is cut off: never write past data[] */
+						if (dataPointer + entry->sizeOfDaqElement > dataEnd) {
+							break;
+						}
 						GO_xcp_read_data(&data[dataPointer], entry->sizeOfDaqElement,
 									(uint32_t*)entry->adressOfDaqElement);
 						dataPointer = dataPointer + entry->sizeOfDaqElement;

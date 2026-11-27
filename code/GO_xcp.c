@@ -535,7 +535,8 @@ typedef union {
 int  xcpSocketResult, XcpSocket;
 static struct sockaddr_in addr_HT;
 static int		  slen		       = sizeof(addr_HT);
-static uint8_t		  dataToSend[120]      = {0};
+/* length byte + largest answer (MAX_CTO is announced as 255) + checksum byte */
+static uint8_t		  dataToSend[1 + XCPMAXCTOLENGTH + 1] = {0};
 static uint8_t		  xcpTransmissionBus   = 0;
 static int		  timeout_sec	       = 0;
 bool			  timeout_active       = false;
